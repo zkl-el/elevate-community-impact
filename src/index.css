@@ -1,95 +1,77 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Serif+Display&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 38 35% 97%;
+    --foreground: 225 25% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 225 25% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 225 25% 15%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 36 90% 50%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 38 30% 92%;
+    --secondary-foreground: 225 25% 15%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 38 20% 94%;
+    --muted-foreground: 225 10% 50%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 155 60% 40%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 38 20% 88%;
+    --input: 38 20% 88%;
+    --ring: 36 90% 50%;
 
-    --radius: 0.5rem;
+    --radius: 1rem;
+
+    /* Custom tokens */
+    --gold: 36 90% 50%;
+    --gold-light: 40 85% 65%;
+    --gold-dark: 32 85% 40%;
+    --emerald: 155 60% 40%;
+    --emerald-light: 155 50% 55%;
+    --navy: 225 40% 18%;
+    --cream: 38 35% 97%;
+    --warm-white: 40 30% 99%;
+    --bronze: 25 60% 45%;
+    --silver: 220 10% 70%;
+    --xp-purple: 270 60% 55%;
+
+    --gradient-gold: linear-gradient(135deg, hsl(36 90% 50%), hsl(40 85% 65%));
+    --gradient-hero: linear-gradient(160deg, hsl(225 40% 18%), hsl(225 35% 25%), hsl(36 60% 30%));
+    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.6), rgba(255,255,255,0.2));
+    --gradient-emerald: linear-gradient(135deg, hsl(155 60% 40%), hsl(155 50% 55%));
+    --gradient-badge: linear-gradient(135deg, hsl(36 90% 50%), hsl(25 60% 45%));
+    --gradient-xp: linear-gradient(135deg, hsl(270 60% 55%), hsl(300 60% 55%));
+
+    --shadow-card: 0 4px 24px -4px hsl(36 30% 50% / 0.12);
+    --shadow-card-hover: 0 12px 40px -8px hsl(36 30% 50% / 0.2);
+    --shadow-glass: 0 8px 32px -8px hsl(225 30% 30% / 0.1);
+    --shadow-glow-gold: 0 0 30px hsl(36 90% 50% / 0.3);
+    --shadow-glow-emerald: 0 0 20px hsl(155 60% 40% / 0.25);
+
+    --font-display: 'DM Serif Display', serif;
+    --font-body: 'Plus Jakarta Sans', sans-serif;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
@@ -98,8 +80,84 @@ All colors MUST be HSL.
   * {
     @apply border-border;
   }
-
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-card/70 backdrop-blur-xl rounded-2xl border border-white/30;
+    box-shadow: var(--shadow-glass);
+  }
+  .glass-card-hover {
+    @apply glass-card transition-all duration-300;
+  }
+  .glass-card-hover:hover {
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-2px);
+  }
+  .gradient-gold {
+    background: var(--gradient-gold);
+  }
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+  .gradient-emerald {
+    background: var(--gradient-emerald);
+  }
+  .gradient-badge {
+    background: var(--gradient-badge);
+  }
+  .gradient-xp {
+    background: var(--gradient-xp);
+  }
+  .text-gradient-gold {
+    background: var(--gradient-gold);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .glow-gold {
+    box-shadow: var(--shadow-glow-gold);
+  }
+  .glow-emerald {
+    box-shadow: var(--shadow-glow-emerald);
+  }
+}
+
+@layer utilities {
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+  @keyframes count-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+  .animate-shimmer {
+    background-size: 200% 100%;
+    animation: shimmer 2s ease-in-out infinite;
+  }
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+  .animate-count-up {
+    animation: count-up 0.6s ease-out forwards;
   }
 }

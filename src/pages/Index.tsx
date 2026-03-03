@@ -5,13 +5,22 @@ import ProgressRing from "@/components/church/ProgressRing";
 import StatsCard from "@/components/church/StatsCard";
 import LeaderboardItem from "@/components/church/LeaderboardItem";
 import Header from "@/components/church/Header";
-import { MOCK_CHURCH, MOCK_GROUPS } from "@/lib/mockData";
+import { usePublicDashboard } from "@/hooks/useChurchData";
+
+const ANNUAL_GOAL = 500000; // Configurable church annual goal
 
 const Index = () => {
-  const { annualGoal, totalCollected, currentProject } = MOCK_CHURCH;
-  const percentage = (totalCollected / annualGoal) * 100;
-  const projectPercentage = (currentProject.collectedAmount / currentProject.targetAmount) * 100;
-  const bestGroup = MOCK_GROUPS[0];
+  const { data, isLoading } = usePublicDashboard();
+
+  const totalCollected = data?.total_collected ?? 0;
+  const percentage = ANNUAL_GOAL > 0 ? (totalCollected / ANNUAL_GOAL) * 100 : 0;
+  const currentProject = data?.current_project;
+  const projectPercentage = currentProject
+    ? (currentProject.collected_amount / currentProject.target_amount) * 100
+    : 0;
+  const bestGroup = data?.best_group;
+  const groups = data?.groups_leaderboard ?? [];
+  const activeMembers = data?.active_members ?? 0;
 
   const container = {
     hidden: { opacity: 0 },
@@ -62,15 +71,15 @@ const Index = () => {
           </motion.p>
 
           <motion.div variants={item} className="flex justify-center mb-8">
-            <ProgressRing percentage={percentage} size={200} strokeWidth={12} label="Annual Goal" sublabel={`KES ${annualGoal.toLocaleString()}`} />
+            <ProgressRing percentage={percentage} size={200} strokeWidth={12} label="Annual Goal" sublabel={`KES ${ANNUAL_GOAL.toLocaleString()}`} />
           </motion.div>
 
           <motion.div variants={item} className="flex flex-col items-center gap-2 mb-10">
-            <p className="text-3xl font-bold text-primary-foreground">
+            <p className="text-3xl font-bold text-primary-foreground font-body">
               KES {totalCollected.toLocaleString()}
             </p>
             <p className="text-primary-foreground/60 text-sm">
-              raised of KES {annualGoal.toLocaleString()} goal
+              raised of KES {ANNUAL_GOAL.toLocaleString()} goal
             </p>
           </motion.div>
 
@@ -89,12 +98,7 @@ const Index = () => {
 
       {/* Stats Grid */}
       <section className="container mx-auto px-4 -mt-8 relative z-20">
-        <motion.div
-          className="grid grid-cols-1 sm:grid-cols-3 gap-4"
-          variants={container}
-          initial="hidden"
-          animate="show"
-        >
+        <motion.div className="grid grid-cols-1 sm:grid-cols-3 gap-4" variants={container} initial="hidden" animate="show">
           <motion.div variants={item}>
             <StatsCard
               title="Total Collected"
@@ -106,16 +110,16 @@ const Index = () => {
           <motion.div variants={item}>
             <StatsCard
               title="Best Group"
-              value={bestGroup.name}
-              subtitle={`KES ${bestGroup.totalContributed.toLocaleString()} • ${bestGroup.memberCount} members`}
+              value={bestGroup?.name ?? "—"}
+              subtitle={bestGroup ? `KES ${bestGroup.total.toLocaleString()} • ${bestGroup.members} members` : "No groups yet"}
               icon={<span className="text-2xl">🏆</span>}
             />
           </motion.div>
           <motion.div variants={item}>
             <StatsCard
               title="Active Members"
-              value="90"
-              subtitle="Contributing this month"
+              value={activeMembers}
+              subtitle="Contributing this year"
               icon={<Users className="w-6 h-6 text-primary" />}
             />
           </motion.div>
@@ -123,59 +127,59 @@ const Index = () => {
       </section>
 
       {/* Current Project */}
-      <section className="container mx-auto px-4 py-16">
-        <motion.div
-          className="glass-card p-6 sm:p-8 rounded-3xl"
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-        >
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-            <div className="flex-1">
-              <p className="text-xs font-semibold text-accent uppercase tracking-wider mb-1">🚧 Current Project</p>
-              <h2 className="text-2xl sm:text-3xl font-display text-foreground mb-2">{currentProject.name}</h2>
-              <p className="text-muted-foreground text-sm mb-4">{currentProject.description}</p>
-              <div className="flex items-center gap-4 text-sm">
-                <span className="font-bold text-foreground">KES {currentProject.collectedAmount.toLocaleString()}</span>
-                <span className="text-muted-foreground">of KES {currentProject.targetAmount.toLocaleString()}</span>
+      {currentProject && (
+        <section className="container mx-auto px-4 py-16">
+          <motion.div
+            className="glass-card p-6 sm:p-8 rounded-3xl"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-accent uppercase tracking-wider mb-1">🚧 Current Project</p>
+                <h2 className="text-2xl sm:text-3xl font-display text-foreground mb-2">{currentProject.name}</h2>
+                <p className="text-muted-foreground text-sm mb-4">{currentProject.description}</p>
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="font-bold text-foreground">KES {currentProject.collected_amount.toLocaleString()}</span>
+                  <span className="text-muted-foreground">of KES {currentProject.target_amount.toLocaleString()}</span>
+                </div>
+                <div className="relative h-3 rounded-full bg-muted overflow-hidden mt-3 max-w-md">
+                  <motion.div
+                    className="absolute inset-y-0 left-0 rounded-full gradient-emerald glow-emerald"
+                    initial={{ width: 0 }}
+                    whileInView={{ width: `${projectPercentage}%` }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 1.5, ease: "easeOut" }}
+                  />
+                </div>
               </div>
-              <div className="relative h-3 rounded-full bg-muted overflow-hidden mt-3 max-w-md">
-                <motion.div
-                  className="absolute inset-y-0 left-0 rounded-full gradient-emerald glow-emerald"
-                  initial={{ width: 0 }}
-                  whileInView={{ width: `${projectPercentage}%` }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 1.5, ease: "easeOut" }}
-                />
-              </div>
+              <ProgressRing percentage={projectPercentage} size={120} strokeWidth={8} color="emerald" label="Funded" />
             </div>
-            <ProgressRing percentage={projectPercentage} size={120} strokeWidth={8} color="emerald" label="Funded" />
-          </div>
-        </motion.div>
-      </section>
+          </motion.div>
+        </section>
+      )}
 
       {/* Group Leaderboard Preview */}
-      <section className="container mx-auto px-4 pb-16">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-        >
-          <h2 className="text-2xl font-display text-foreground mb-6 text-center">Group Leaderboard</h2>
-          <div className="max-w-lg mx-auto space-y-3">
-            {MOCK_GROUPS.slice(0, 5).map((group, i) => (
-              <LeaderboardItem
-                key={group.id}
-                rank={i + 1}
-                name={group.name}
-                amount={group.totalContributed}
-                memberCount={group.memberCount}
-                isHighlighted={i === 0}
-              />
-            ))}
-          </div>
-        </motion.div>
-      </section>
+      {groups.length > 0 && (
+        <section className="container mx-auto px-4 pb-16">
+          <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+            <h2 className="text-2xl font-display text-foreground mb-6 text-center">Group Leaderboard</h2>
+            <div className="max-w-lg mx-auto space-y-3">
+              {groups.slice(0, 5).map((group, i) => (
+                <LeaderboardItem
+                  key={group.id}
+                  rank={i + 1}
+                  name={group.name}
+                  amount={group.total}
+                  memberCount={group.member_count}
+                  isHighlighted={i === 0}
+                />
+              ))}
+            </div>
+          </motion.div>
+        </section>
+      )}
 
       {/* Footer */}
       <footer className="border-t border-border py-8">

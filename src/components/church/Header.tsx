@@ -1,14 +1,15 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Home, LayoutDashboard, Trophy, LogIn, User } from "lucide-react";
+import { Home, LayoutDashboard, Trophy, LogIn, LogOut } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Header = () => {
   const location = useLocation();
-  const isLoggedIn = location.pathname !== "/" && location.pathname !== "/auth";
+  const { user, signOut } = useAuth();
 
   const navItems = [
     { to: "/", label: "Home", icon: Home },
-    ...(isLoggedIn
+    ...(user
       ? [
           { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
           { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
@@ -54,7 +55,7 @@ const Header = () => {
               </Link>
             );
           })}
-          {!isLoggedIn ? (
+          {!user ? (
             <Link
               to="/auth"
               className="ml-2 flex items-center gap-2 px-4 py-2 rounded-xl gradient-gold text-primary-foreground text-sm font-semibold transition-transform hover:scale-105"
@@ -63,12 +64,13 @@ const Header = () => {
               <span className="hidden sm:inline">Sign In</span>
             </Link>
           ) : (
-            <Link
-              to="/dashboard"
-              className="ml-2 w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary"
+            <button
+              onClick={signOut}
+              className="ml-2 flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              <User className="w-4 h-4" />
-            </Link>
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Sign Out</span>
+            </button>
           )}
         </nav>
       </div>

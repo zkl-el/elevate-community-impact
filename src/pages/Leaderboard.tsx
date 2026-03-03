@@ -1,10 +1,14 @@
 import { motion } from "framer-motion";
 import Header from "@/components/church/Header";
 import LeaderboardItem from "@/components/church/LeaderboardItem";
-import { MOCK_GROUPS } from "@/lib/mockData";
-import { Trophy } from "lucide-react";
+import { usePublicDashboard } from "@/hooks/useChurchData";
+import { Trophy, Loader2 } from "lucide-react";
 
 const Leaderboard = () => {
+  const { data, isLoading } = usePublicDashboard();
+  const groups = data?.groups_leaderboard ?? [];
+  const total = groups.reduce((sum, g) => sum + g.total, 0);
+
   const container = {
     hidden: { opacity: 0 },
     show: { opacity: 1, transition: { staggerChildren: 0.1 } },
@@ -14,17 +18,18 @@ const Leaderboard = () => {
     show: { opacity: 1, y: 0 },
   };
 
-  const total = MOCK_GROUPS.reduce((sum, g) => sum + g.totalContributed, 0);
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <motion.div
-        className="container mx-auto px-4 py-8 max-w-2xl"
-        variants={container}
-        initial="hidden"
-        animate="show"
-      >
+      <motion.div className="container mx-auto px-4 py-8 max-w-2xl" variants={container} initial="hidden" animate="show">
         <motion.div variants={item} className="text-center mb-8">
           <motion.div
             className="inline-flex items-center justify-center w-16 h-16 rounded-2xl gradient-gold glow-gold mb-4"
@@ -40,16 +45,20 @@ const Leaderboard = () => {
         </motion.div>
 
         <motion.div variants={item} className="space-y-3">
-          {MOCK_GROUPS.map((group, i) => (
-            <LeaderboardItem
-              key={group.id}
-              rank={i + 1}
-              name={group.name}
-              amount={group.totalContributed}
-              memberCount={group.memberCount}
-              isHighlighted={i === 0}
-            />
-          ))}
+          {groups.length === 0 ? (
+            <p className="text-center text-muted-foreground py-12">No groups yet. Check back soon!</p>
+          ) : (
+            groups.map((group, i) => (
+              <LeaderboardItem
+                key={group.id}
+                rank={i + 1}
+                name={group.name}
+                amount={group.total}
+                memberCount={group.member_count}
+                isHighlighted={i === 0}
+              />
+            ))
+          )}
         </motion.div>
 
         <motion.p variants={item} className="text-center text-sm text-muted-foreground mt-8">

@@ -35,9 +35,9 @@ export const useMemberDashboard = (userId: string | undefined) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("*, groups(name)")
+        .select("*, groups!profiles_group_id_fkey(name)")
         .eq("id", userId!)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },

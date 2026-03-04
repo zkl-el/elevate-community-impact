@@ -44,7 +44,13 @@ const Dashboard = () => {
     );
   }
 
-  if (!p) return null;
+  if (!p) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <p className="text-muted-foreground">No profile found. Please contact an admin.</p>
+      </div>
+    );
+  }
 
   const balance = p.annual_goal - p.total_contributed;
   const percentage = p.annual_goal > 0 ? (p.total_contributed / p.annual_goal) * 100 : 0;

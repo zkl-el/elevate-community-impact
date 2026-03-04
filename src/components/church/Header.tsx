@@ -1,11 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Home, LayoutDashboard, Trophy, LogIn, LogOut } from "lucide-react";
+import { Home, LayoutDashboard, Trophy, LogIn, LogOut, Shield, DollarSign, Users } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Header = () => {
   const location = useLocation();
-  const { user, signOut } = useAuth();
+  const { user, roles, signOut } = useAuth();
 
   const navItems = [
     { to: "/", label: "Home", icon: Home },
@@ -13,6 +13,15 @@ const Header = () => {
       ? [
           { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
           { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
+          ...(roles.includes("group_leader") || roles.includes("super_admin")
+            ? [{ to: "/group-leader", label: "My Group", icon: Users }]
+            : []),
+          ...(roles.includes("finance_admin") || roles.includes("super_admin")
+            ? [{ to: "/finance", label: "Finance", icon: DollarSign }]
+            : []),
+          ...(roles.includes("super_admin")
+            ? [{ to: "/admin", label: "Admin", icon: Shield }]
+            : []),
         ]
       : []),
   ];

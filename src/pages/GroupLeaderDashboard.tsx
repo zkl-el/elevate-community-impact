@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/church/Header";
 import { useQuery } from "@tanstack/react-query";
-import { Users, TrendingUp, Target, Loader2, Trophy } from "lucide-react";
+import { Users, TrendingUp, Target, Loader2, Trophy, Medal, Award, Flame } from "lucide-react";
 import StatsCard from "@/components/church/StatsCard";
 import ProgressRing from "@/components/church/ProgressRing";
 import { useEffect } from "react";
@@ -90,7 +90,7 @@ const GroupLeaderDashboard = () => {
           <div className="space-y-2">
             {members.map((m, i) => {
               const pct = Number(m.annual_goal) > 0 ? Math.round((Number(m.total_contributed) / Number(m.annual_goal)) * 100) : 0;
-              const rankIcons: Record<number, string> = { 0: "🥇", 1: "🥈", 2: "🥉" };
+              const RankIcon = i === 0 ? Trophy : i === 1 ? Medal : i === 2 ? Award : null;
               return (
                 <motion.div
                   key={m.id}
@@ -100,11 +100,11 @@ const GroupLeaderDashboard = () => {
                   transition={{ delay: i * 0.05 }}
                 >
                   <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
-                    {rankIcons[i] ?? i + 1}
+                    {RankIcon ? <RankIcon className="w-4 h-4 text-primary" /> : i + 1}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-foreground text-sm truncate">{m.full_name}</p>
-                    <p className="text-xs text-muted-foreground">{m.category.replace("_", " ")} • Level {m.level} • 🔥 {m.streak}</p>
+                    <p className="text-xs text-muted-foreground">{m.category.replace("_", " ")} • Level {m.level} • <Flame className="w-3 h-3 inline" /> {m.streak}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
                         <motion.div className="h-full rounded-full gradient-gold" initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 1 }} />

@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Home, LayoutDashboard, Trophy, LogIn, LogOut, Shield, DollarSign, Users } from "lucide-react";
+import { Home, LayoutDashboard, Trophy, LogIn, LogOut, Shield, DollarSign, Users, Church } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Header = () => {
@@ -35,8 +35,8 @@ const Header = () => {
     >
       <div className="container mx-auto flex items-center justify-between h-16 px-4">
         <Link to="/" className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-xl gradient-gold flex items-center justify-center text-lg">
-            ⛪
+          <div className="w-9 h-9 rounded-xl gradient-gold flex items-center justify-center">
+            <Church className="w-5 h-5 text-primary-foreground" />
           </div>
           <span className="font-display text-lg text-foreground hidden sm:block">Grace Church</span>
         </Link>

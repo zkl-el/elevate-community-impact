@@ -35,21 +35,21 @@ export const MOCK_USER = {
 };
 
 export const LEVELS = [
-  { level: 1, name: "Seed Sower", minXP: 0, icon: "🌱" },
-  { level: 2, name: "Faithful Giver", minXP: 500, icon: "🌿" },
-  { level: 3, name: "Kingdom Builder", minXP: 2000, icon: "🏗️" },
-  { level: 4, name: "Pillar of Faith", minXP: 5000, icon: "⛪" },
-  { level: 5, name: "Crown Bearer", minXP: 10000, icon: "👑" },
+  { level: 1, name: "Seed Sower", minXP: 0, icon: "Sprout" },
+  { level: 2, name: "Faithful Giver", minXP: 500, icon: "Leaf" },
+  { level: 3, name: "Kingdom Builder", minXP: 2000, icon: "Hammer" },
+  { level: 4, name: "Pillar of Faith", minXP: 5000, icon: "Church" },
+  { level: 5, name: "Crown Bearer", minXP: 10000, icon: "Crown" },
 ];
 
 export const BADGES = [
-  { id: "first", name: "First Step", description: "Made your first contribution", icon: "⭐", earned: true },
-  { id: "quarter", name: "25% There", description: "Reached 25% of your goal", icon: "🔥", earned: true },
-  { id: "half", name: "Halfway Hero", description: "Reached 50% of your goal", icon: "🎯", earned: true },
-  { id: "three-quarter", name: "Almost There", description: "Reached 75% of your goal", icon: "🚀", earned: false },
-  { id: "complete", name: "Goal Crusher", description: "Completed your annual goal!", icon: "🏆", earned: false },
-  { id: "streak7", name: "Weekly Warrior", description: "7-day contribution streak", icon: "💎", earned: true },
-  { id: "streak30", name: "Monthly Champion", description: "30-day contribution streak", icon: "🌟", earned: false },
+  { id: "first", name: "First Step", description: "Made your first contribution", icon: "Star", earned: true },
+  { id: "quarter", name: "25% There", description: "Reached 25% of your goal", icon: "Flame", earned: true },
+  { id: "half", name: "Halfway Hero", description: "Reached 50% of your goal", icon: "Target", earned: true },
+  { id: "three-quarter", name: "Almost There", description: "Reached 75% of your goal", icon: "Rocket", earned: false },
+  { id: "complete", name: "Goal Crusher", description: "Completed your annual goal!", icon: "Trophy", earned: false },
+  { id: "streak7", name: "Weekly Warrior", description: "7-day contribution streak", icon: "Gem", earned: true },
+  { id: "streak30", name: "Monthly Champion", description: "30-day contribution streak", icon: "Sparkles", earned: false },
 ];
 
 export const MOCK_CONTRIBUTIONS = [

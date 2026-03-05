@@ -37,7 +37,7 @@ const Auth = () => {
       toast.error(error.message);
       return;
     }
-    toast.success("Welcome back! 🎉");
+    toast.success("Welcome back!");
     navigate("/dashboard");
   };
 
@@ -58,7 +58,7 @@ const Auth = () => {
       toast.error(error.message);
       return;
     }
-    toast.success("Account created! Welcome! 🎉");
+    toast.success("Account created! Welcome!");
     navigate("/dashboard");
   };
 

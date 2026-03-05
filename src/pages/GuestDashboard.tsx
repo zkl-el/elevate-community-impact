@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useSearchParams, Link } from "react-router-dom";
-import { Heart, TrendingUp, Users, ArrowLeft } from "lucide-react";
+import { Heart, TrendingUp, Users, ArrowLeft, Trophy, Construction } from "lucide-react";
 import Header from "@/components/church/Header";
 import ProgressRing from "@/components/church/ProgressRing";
 import StatsCard from "@/components/church/StatsCard";
@@ -37,7 +37,7 @@ const GuestDashboard = () => {
         {/* Greeting */}
         <motion.div variants={item} className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-display text-foreground">Welcome, {label}! 👋</h1>
+            <h1 className="text-2xl font-display text-foreground">Welcome, {label}!</h1>
             <p className="text-sm text-muted-foreground">Thank you for joining us today</p>
           </div>
           <Link to="/" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -51,7 +51,7 @@ const GuestDashboard = () => {
           <div className="flex-1 grid grid-cols-2 gap-3 w-full">
             <StatsCard title="Total Collected" value={`KES ${totalCollected.toLocaleString()}`} icon={<TrendingUp className="w-5 h-5 text-accent" />} />
             <StatsCard title="Annual Goal" value={`KES ${ANNUAL_GOAL.toLocaleString()}`} icon={<Heart className="w-5 h-5 text-primary" />} />
-            <StatsCard title="Best Group" value={bestGroup?.name ?? "—"} icon={<span>🏆</span>} />
+            <StatsCard title="Best Group" value={bestGroup?.name ?? "—"} icon={<Trophy className="w-5 h-5 text-primary" />} />
             <StatsCard title="Active Members" value={data?.active_members ?? 0} icon={<Users className="w-5 h-5 text-primary" />} />
           </div>
         </motion.div>
@@ -59,7 +59,7 @@ const GuestDashboard = () => {
         {/* Current Project */}
         {currentProject && (
           <motion.div variants={item} className="glass-card p-6 rounded-3xl">
-            <p className="text-xs font-semibold text-accent uppercase tracking-wider mb-1">🚧 Current Project</p>
+            <p className="text-xs font-semibold text-accent uppercase tracking-wider mb-1 flex items-center gap-1"><Construction className="w-3.5 h-3.5" /> Current Project</p>
             <h2 className="text-xl font-display text-foreground mb-2">{currentProject.name}</h2>
             <p className="text-muted-foreground text-sm mb-4">{currentProject.description}</p>
             <div className="flex items-center gap-4 text-sm mb-3">

@@ -13,10 +13,24 @@ import XPBar from "@/components/church/XPBar";
 import StreakBadge from "@/components/church/StreakBadge";
 import XPPopup from "@/components/church/XPPopup";
 import { LEVELS } from "@/lib/mockData";
-import { CalendarDays, Wallet, Target, TrendingUp, Loader2 } from "lucide-react";
+import { CalendarDays, Wallet, Target, TrendingUp, Loader2, Coins, Sprout, Leaf, Hammer, Church, Crown, Hand } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
+import * as LucideIcons from "lucide-react";
+
+const LEVEL_ICONS: Record<string, React.FC<{ className?: string }>> = {
+  Sprout: LucideIcons.Sprout,
+  Leaf: LucideIcons.Leaf,
+  Hammer: LucideIcons.Hammer,
+  Church: LucideIcons.Church,
+  Crown: LucideIcons.Crown,
+};
+
+const LevelIcon = ({ name }: { name: string }) => {
+  const Icon = LEVEL_ICONS[name] || LucideIcons.Sprout;
+  return <Icon className="w-5 h-5 text-primary" />;
+};
 
 const Dashboard = () => {
   const { user, profile, loading: authLoading } = useAuth();
@@ -76,7 +90,7 @@ const Dashboard = () => {
       origin: { y: 0.6 },
       colors: ["#d4a017", "#2d8a56", "#7c3aed"],
     });
-    toast.success("Contribution recorded! 🎉");
+    toast.success("Contribution recorded!");
     queryClient.invalidateQueries({ queryKey: ["profile"] });
     queryClient.invalidateQueries({ queryKey: ["contributions"] });
     queryClient.invalidateQueries({ queryKey: ["user-badges"] });
@@ -106,7 +120,7 @@ const Dashboard = () => {
         {/* Greeting */}
         <motion.div variants={item} className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-display text-foreground">Hello, {p.full_name.split(" ")[0]} 👋</h1>
+            <h1 className="text-2xl font-display text-foreground">Hello, {p.full_name.split(" ")[0]}</h1>
             <p className="text-sm text-muted-foreground">{groupName} • {p.category.replace("_", " ")}</p>
           </div>
           <StreakBadge streak={p.streak} />
@@ -124,7 +138,7 @@ const Dashboard = () => {
             <StatsCard title="Annual Goal" value={`KES ${p.annual_goal.toLocaleString()}`} icon={<Target className="w-5 h-5 text-primary" />} />
             <StatsCard title="Contributed" value={`KES ${p.total_contributed.toLocaleString()}`} icon={<TrendingUp className="w-5 h-5 text-accent" />} />
             <StatsCard title="Remaining" value={`KES ${Math.max(0, balance).toLocaleString()}`} icon={<Wallet className="w-5 h-5 text-bronze" />} />
-            <StatsCard title="Level" value={LEVELS[p.level - 1]?.name ?? `Level ${p.level}`} icon={<span>{LEVELS[p.level - 1]?.icon ?? "🌱"}</span>} />
+            <StatsCard title="Level" value={LEVELS[p.level - 1]?.name ?? `Level ${p.level}`} icon={<LevelIcon name={LEVELS[p.level - 1]?.icon ?? "Sprout"} />} />
           </div>
         </motion.div>
 
@@ -137,7 +151,7 @@ const Dashboard = () => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
           >
-            {contributing ? <Loader2 className="w-5 h-5 animate-spin" /> : "💰"} Make a Contribution
+            {contributing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Coins className="w-5 h-5" />} Make a Contribution
           </motion.button>
         </motion.div>
 
@@ -157,7 +171,7 @@ const Dashboard = () => {
         <motion.div variants={item}>
           <h2 className="text-xl font-display text-foreground mb-4">Recent Contributions</h2>
           {contributions.length === 0 ? (
-            <p className="text-muted-foreground text-sm text-center py-8">No contributions yet. Make your first one above! 🌱</p>
+            <p className="text-muted-foreground text-sm text-center py-8">No contributions yet. Make your first one above!</p>
           ) : (
             <div className="space-y-2">
               {contributions.map((c) => (

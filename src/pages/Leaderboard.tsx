@@ -62,7 +62,7 @@ const Leaderboard = () => {
         </motion.div>
 
         <motion.p variants={item} className="text-center text-sm text-muted-foreground mt-8">
-          Keep contributing to help your group climb the leaderboard! 🚀
+          Keep contributing to help your group climb the leaderboard!
         </motion.p>
       </motion.div>
     </div>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Heart, TrendingUp, Users, GraduationCap, Church, Eye, UserCheck, X } from "lucide-react";
+import { ArrowRight, Heart, TrendingUp, Users, GraduationCap, Church, Eye, UserCheck, X, Trophy, Construction } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import ProgressRing from "@/components/church/ProgressRing";
 import StatsCard from "@/components/church/StatsCard";
@@ -122,7 +122,7 @@ const Index = () => {
               title="Best Group"
               value={bestGroup?.name ?? "—"}
               subtitle={bestGroup ? `KES ${bestGroup.total.toLocaleString()} • ${bestGroup.members} members` : "No groups yet"}
-              icon={<span className="text-2xl">🏆</span>}
+              icon={<Trophy className="w-6 h-6 text-primary" />}
             />
           </motion.div>
           <motion.div variants={item}>
@@ -147,7 +147,7 @@ const Index = () => {
           >
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
               <div className="flex-1">
-                <p className="text-xs font-semibold text-accent uppercase tracking-wider mb-1">🚧 Current Project</p>
+                <p className="text-xs font-semibold text-accent uppercase tracking-wider mb-1 flex items-center gap-1"><Construction className="w-3.5 h-3.5" /> Current Project</p>
                 <h2 className="text-2xl sm:text-3xl font-display text-foreground mb-2">{currentProject.name}</h2>
                 <p className="text-muted-foreground text-sm mb-4">{currentProject.description}</p>
                 <div className="flex items-center gap-4 text-sm">
@@ -250,7 +250,7 @@ const Index = () => {
       <footer className="border-t border-border py-8">
         <div className="container mx-auto px-4 text-center">
           <p className="text-sm text-muted-foreground">
-            © 2026 Grace Community Church. Built with ❤️ and faith.
+            © 2026 Grace Community Church. Built with <Heart className="w-3.5 h-3.5 inline text-primary" /> and faith.
           </p>
         </div>
       </footer>

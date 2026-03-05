@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { Medal, Award, Trophy } from "lucide-react";
 
 interface LeaderboardItemProps {
   rank: number;
@@ -8,7 +9,12 @@ interface LeaderboardItemProps {
   isHighlighted?: boolean;
 }
 
-const rankIcons: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
+const RankIcon = ({ rank }: { rank: number }) => {
+  if (rank === 1) return <Trophy className="w-5 h-5 text-primary" />;
+  if (rank === 2) return <Medal className="w-5 h-5 text-muted-foreground" />;
+  if (rank === 3) return <Award className="w-5 h-5 text-accent" />;
+  return <span className="text-sm font-bold text-muted-foreground">{rank}</span>;
+};
 
 const LeaderboardItem = ({ rank, name, amount, memberCount, isHighlighted }: LeaderboardItemProps) => {
   return (
@@ -21,8 +27,8 @@ const LeaderboardItem = ({ rank, name, amount, memberCount, isHighlighted }: Lea
       transition={{ delay: rank * 0.1 }}
       whileHover={{ scale: 1.02 }}
     >
-      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-muted text-lg font-bold">
-        {rankIcons[rank] || rank}
+      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-muted">
+        <RankIcon rank={rank} />
       </div>
       <div className="flex-1 min-w-0">
         <p className={`font-semibold truncate ${isHighlighted ? "text-primary-foreground" : "text-foreground"}`}>

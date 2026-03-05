@@ -84,7 +84,7 @@ const FinanceAdminDashboard = () => {
     });
     setRecording(false);
     if (error) { toast.error(error.message); return; }
-    toast.success("Payment recorded! 🎉");
+    toast.success("Payment recorded!");
     setPayAmount("");
     qc.invalidateQueries({ queryKey: ["finance-contributions"] });
     qc.invalidateQueries({ queryKey: ["finance-profiles"] });

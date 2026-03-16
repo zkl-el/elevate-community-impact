@@ -47,6 +47,23 @@ serve(async (req: Request) => {
 
     const international = "0" + normalizedPhone.slice(3);
 
+// Check OTP attempt limit: max 5 unverified attempts per 5min (task req)
+    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { count: attempts, error: attemptsError } = await supabaseClient
+      .from('otp_codes')
+      .select('*', { count: 'exact', head: true })
+      .eq('phone', international)
+      .eq('verified', false)
+      .gte('created_at', fiveMinAgo);
+    if (attemptsError) console.error('Attempts count error:', attemptsError);
+    else if (attempts && attempts >= 5) {
+      console.log(`Too many attempts for ${international}: ${attempts}`);
+      return new Response(JSON.stringify({ success: false, error: 'Too many verification attempts. Please request new OTP.' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // find matching unverified code
     console.log(`Verifying OTP for phone ${international}, code: ${otp}`);
 
@@ -79,72 +96,77 @@ serve(async (req: Request) => {
       .update({ verified: true })
       .eq('id', record.id);
 
-    // ensure profile exists - create Supabase auth user first
-    let user: any = null;
-    const { data: existing } = await supabaseClient
-      .from('profiles')
-      .select('*')
-      .eq('phone', international)
+    // PURE PHONE AUTH - Find profile by phone
+    let profile = null;
+    const { data: existingProfile } = await supabaseClient
+      .from("profiles")
+      .select("*")
+      .eq("phone", international)
       .maybeSingle();
+    profile = existingProfile;
 
-    if (!existing) {
-      // Create user in Supabase Auth
-      const email = `${normalizedPhone}@churchapp.local`;
-      const { data: authUser, error: authError } = await supabaseClient.auth.admin.createUser({
-        email,
-        password: Math.random().toString(36) + Date.now().toString(),
+    let authUserId: string;
+
+    if (!profile) {
+      // Create auth user with phone
+      const password = crypto.randomUUID();
+      const { data: newUser, error: createError } = await supabaseClient.auth.admin.createUser({
         phone: international,
-        user_metadata: { phone: international, full_name: record.full_name }
+        password,
+        phone_confirm: true,
+        user_metadata: {
+          full_name: record.full_name
+        }
       });
 
-      if (authError) {
-        console.error('Failed to create auth user:', authError);
-        throw authError;
-      }
+      if (createError) throw createError;
 
-      // Create profile with the auth user ID
+      authUserId = newUser.user.id;
+
+// Create profile with select (task: role 'member')
       const { data: newProfile, error: profileError } = await supabaseClient
-        .from('profiles')
-        .insert({ 
-          id: authUser.user.id,
-          phone: international, 
-          full_name: record.full_name, 
-          category: 'church_member' 
+        .from("profiles")
+        .insert({
+          id: authUserId,
+          phone: international,
+          full_name: record.full_name,
+          role: 'member'
         })
+        .select()
         .single();
+      if (profileError) throw profileError;
       
-      if (profileError) {
-        console.error('Failed to create profile:', profileError);
-        throw profileError;
-      }
-      
-      user = newProfile;
+      profile = newProfile;
+
     } else {
-      user = existing;
+      authUserId = profile.id;
     }
-
-    // create a Supabase auth session for the user
-    const { data: sessionData, error: sessionError } =
-      await supabaseClient.auth.admin.createSession({
-        user_id: user.id,
-      });
     
-    if (sessionError) {
-      console.error('Failed to create session:', sessionError);
-      throw sessionError;
+    // Phone auth session: Use temp password + signInWithPassword (works for phone users after phone_confirm=true)
+    const tempPassword = crypto.randomUUID();
+    await supabaseClient.auth.admin.updateUserById(authUserId, { password: tempPassword });
+    
+    const { data: { session }, error: signInError } = await supabaseClient.auth.signInWithPassword({
+      phone: international,
+      password: tempPassword
+    });
+    
+    if (signInError) {
+      console.error('signInWithPassword error:', signInError);
+      throw new Error('Session generation failed: ' + signInError.message);
     }
-
-    const access_token = sessionData?.access_token;
-    const refresh_token = sessionData?.refresh_token;
-    const expires_at = sessionData?.expires_at;
+    
+    const access_token = session.access_token;
+    const refresh_token = session.refresh_token;
+    const expires_at = session.expires_at.toISOString();
 
     return new Response(
       JSON.stringify({
         success: true,
         access_token,
         refresh_token,
-        user_id: user.id,
-        user,
+        user_id: profile ? profile.id : authUserId,
+        user: profile,
         expires_at,
       }),
       {

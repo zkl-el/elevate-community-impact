@@ -49,8 +49,9 @@ const ExpandableCard = ({ title, icon, children, isExpanded, onToggle, index, on
             className="text-white/80"
           >
             <ChevronDown 
-              className={`w-5 h-5 transition-transform duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${isExpanded ? 'rotate-180' : ''}`} 
+              className={`w-5 h-5 transition-transform duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${isExpanded ? 'rotate-180' : ''}`}
             />
+
           </div>
         </div>
 

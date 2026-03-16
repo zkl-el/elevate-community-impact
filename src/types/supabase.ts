@@ -1,16 +1,25 @@
-// Supabase generated types (ensure phone auth compatible)
-export type Tables = {
-  // profiles table (link to auth.users.id)
+export type Tables<Database = any> = {
   profiles: {
     Row: {
       id: string
-      full_name: string | null
       phone: string | null
-      category: string
-      // add user_id uuid REFERENCES auth.users(id) if not exists
+      full_name: string | null
+      role: string
+      access_token: string | null
+      token_expires_at: string | null
     }
   }
-  // other tables...
+  otp_codes: {
+    Row: {
+      id: string
+      phone: string
+      otp: string
+      expires_at: string
+      verified: boolean
+      full_name: string | null
+      created_at: string
+    }
+  }
 }
 
 export type Profile = Tables['profiles']['Row'];

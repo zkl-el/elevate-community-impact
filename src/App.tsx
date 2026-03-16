@@ -10,7 +10,6 @@ import Dashboard from "./pages/Dashboard";
 
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import FinanceAdminDashboard from "./pages/FinanceAdminDashboard";
-import GroupLeaderDashboard from "./pages/GroupLeaderDashboard";
 import GuestDashboard from "./pages/GuestDashboard";
 import NotFound from "./pages/NotFound";
 
@@ -18,7 +17,10 @@ const queryClient = new QueryClient();
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
+  const token = localStorage.getItem('custom_access_token');
+  const expires = localStorage.getItem('custom_expires_at');
+  const isAuthenticated = token && expires && new Date(expires) > new Date();
   
   if (loading) {
     return (
@@ -28,7 +30,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
   
-  if (!user) {
+  if (!isAuthenticated) {
     return <Navigate to="/" replace />;
   }
   
@@ -37,7 +39,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 // Auth page wrapper - redirects to dashboard if already logged in
 const AuthPage = () => {
-  const { user, loading } = useAuth();
+  const { user, session, loading } = useAuth();
   
   if (loading) {
     return (
@@ -47,7 +49,7 @@ const AuthPage = () => {
     );
   }
   
-  if (user) {
+  if (user || session) {
     return <Navigate to="/dashboard" replace />;
   }
   
@@ -72,7 +74,6 @@ const App = () => (
             <Route path="/admin" element={<SuperAdminDashboard />} />
             <Route path="/finance" element={<FinanceAdminDashboard />} />
             <Route path="/guest-dashboard" element={<GuestDashboard />} />
-            <Route path="/group-leader" element={<GroupLeaderDashboard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

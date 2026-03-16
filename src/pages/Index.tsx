@@ -1,5 +1,6 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Heart, TrendingUp, Users, GraduationCap, Church, Eye, UserCheck, X, Construction, LogIn, UserPlus, MessageCircle, Phone, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -11,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { ChuoKikuuFriendsCard, ImpactCard, CallToActionCard, CurrentProjectsCard } from "@/components/church/ExpandableCard";
 import { usePublicDashboard } from "@/hooks/useChurchData";
-import { otpService } from "@/lib/otpService"; // used for SMS-based OTP flows
+import { otpService } from "@/lib/otpService";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -52,16 +53,19 @@ const Index = () => {
 
   // Auto-redirect authenticated users to dashboard (instant)
   useEffect(() => {
-    if (!loading && user) {
+    // Check custom auth token
+    const token = localStorage.getItem('custom_access_token');
+    const expires = localStorage.getItem('custom_expires_at');
+    if (token && expires && new Date(expires) > new Date()) {
       navigate("/dashboard", { replace: true });
     }
-  }, [user, loading, navigate]);
+  }, []);
 
 
   // Auth form state - simplified to match Auth.tsx
   const [authLoading, setAuthLoading] = useState(false);
   const [isSignup, setIsSignup] = useState(true);
-  const [authStep, setAuthStep] = useState<"phone" | "otp">("phone");
+  const [authStep, setAuthStep] = useState<"phone" | "otp" | "password">("phone");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
@@ -91,46 +95,38 @@ const Index = () => {
     setExpandedCard(expandedCard === index ? null : index);
   };
 
-  // Auth handlers - simplified to match Auth.tsx
+  // Auth handlers using Supabase
   const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSignup) {
-      if (!fullName.trim()) {
-        toast.error("Enter your full name");
-        return;
-      }
-      if (phone.length < 9) {
-        toast.error("Enter valid phone (9+ digits)");
-        return;
-      }
-      setAuthLoading(true);
-      const result = await otpService.generateOTP(phone, fullName.trim(), 'signup');
-      setAuthLoading(false);
-      if (result.success) {
-        setAuthStep("otp");
-        setOtpCountdown(300);
-        startCountdown();
-        toast.success("OTP sent to " + phone);
-      } else {
-        toast.error(result.error);
-      }
-    } else {
-      if (phone.length < 9) {
-        toast.error("Enter phone (0XXXXXXXXX)");
-        return;
-      }
-      setAuthLoading(true);
-      const result = await otpService.generateOTP(phone, undefined, 'signin');
-      setAuthLoading(false);
-      if (result.success) {
-        setAuthStep("otp");
-        setOtpCountdown(300);
-        startCountdown();
-        toast.success("OTP sent to " + phone);
-      } else {
-        toast.error(result.error);
-      }
+    if (phone.length < 10) {
+      toast.error("Enter valid phone (10+ digits)");
+      return;
     }
+    
+    if (isSignup && !fullName.trim()) {
+      toast.error("Enter your full name for signup");
+      return;
+    }
+
+    setAuthLoading(true);
+    // const loginType: 'otp' = 'otp';
+    // const options = isSignup ? { fullName: fullName.trim() } : {};
+    
+    const result = await otpService.generateOTP(phone, fullName.trim(), isSignup ? 'signup' : 'signin');
+    
+    setAuthLoading(false);
+    
+    if (result.success) {
+      toast.success("OTP sent to " + phone);
+    } else {
+      toast.error(result.error || "Failed to send OTP");
+    }
+    
+    // OTP sent, wait for user to enter code
+    setAuthStep("otp");
+    setOtpCountdown(300);
+    startCountdown();
+    toast.success("OTP sent to " + phone);
   };
 
   const verifyOTP = async (e: React.FormEvent) => {
@@ -143,9 +139,16 @@ const Index = () => {
     try {
       const result = await otpService.verifyOTP(phone, otp);
       if (result.success) {
-        localStorage.setItem("user", JSON.stringify(result.user));
+        if (result.access_token && result.refresh_token) {
+          await supabase.auth.setSession({
+            access_token: result.access_token,
+            refresh_token: result.refresh_token,
+          });
+        }
         toast.success("Logged in!");
+        // Custom auth - navigate immediately since token set
         navigate("/dashboard", { replace: true });
+      } else {
         toast.error(result.error || "Invalid OTP");
       }
     } catch (err) {
@@ -155,7 +158,7 @@ const Index = () => {
     }
   };
 
-  // Auth handlers use Supabase - otpService.verifyOTP now works with Supabase
+// Back to proven otpService flow with setSession → AuthContext listener → dashboard
 
   const startCountdown = () => {
     const countdown = setInterval(() => {
@@ -171,7 +174,9 @@ const Index = () => {
 
   const resendOTP = async () => {
     if (otpCountdown > 0) return;
-    await handlePhoneSubmit({ preventDefault: () => {} } as any);
+    // Trigger new OTP send
+    const e = { preventDefault: () => {} } as React.FormEvent;
+    await handlePhoneSubmit(e);
   };
 
   const formatCountdown = (seconds: number) => {
@@ -592,7 +597,7 @@ const Index = () => {
                   {authStep === "otp" ? "Enter Code" : isSignup ? "Sign Up" : "Sign In"}
                 </h1>
                 <p className="text-blue-200 text-sm">
-                  {authStep === "otp" ? `Sent to ${phone}` : isSignup ? "Enter name and phone to receive OTP" : "Enter phone to sign in"}
+                  {authStep === "otp" ? `OTP sent to ${phone}. Enter code to continue.` : isSignup ? "Enter name and phone to receive OTP" : "Enter phone to receive OTP"}
                 </p>
 
                 {authStep === "phone" && (

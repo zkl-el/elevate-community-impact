@@ -42,16 +42,16 @@ serve(async (req: Request) => {
 
     const international = "0" + normalizedPhone.slice(3);
 
-    // rate limit: allow 15 requests per hour per phone
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const { data: recent } = await supabaseClient
+// rate limit: max 3 OTP requests per minute per phone (task req)
+    const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
+    const { data: recent, error: countError } = await supabaseClient
       .from('otp_codes')
-      .select('id')
+      .select('id', { count: 'exact', head: true })
       .eq('phone', international)
-      .gte('created_at', oneHourAgo)
-      .limit(16);
-    if (recent && recent.length >= 15) {
-      throw new Error('Too many requests. Please try again later (max 15/hour).');
+      .gte('created_at', oneMinuteAgo);
+    if (countError) console.warn('Rate limit count error:', countError);
+    if (recent?.count && recent.count >= 3) {
+      throw new Error('Too many OTP requests. Please wait 1 minute (max 3/min).');
     }
 
     // clean expired

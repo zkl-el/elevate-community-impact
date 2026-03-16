@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import confetti from "canvas-confetti";
 import { useAuth } from "@/contexts/AuthContext";
+import { signOutCustom } from "@/lib/otpService";
+import { Button } from "@/components/ui/button";
 import { useMemberDashboard, usePublicDashboard } from "@/hooks/useChurchData";
 import { supabase } from "@/lib/supabase";
 import { LEVELS } from "@/lib/mockData";
@@ -528,11 +530,7 @@ const Dashboard = () => {
   
   const [activePanel, setActivePanel] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!authLoading && !user && !localStorage.getItem("user")) {
-      navigate("/auth");
-    }
-  }, [authLoading, user, navigate]);
+  // Removed redirect useEffect - ProtectedRoute + AuthContext listener handles auth
 
   const queryUserId = user?.id;
   const { profileQuery, contributionsQuery, groupMembersQuery } = useMemberDashboard(queryUserId);
@@ -654,19 +652,29 @@ const Dashboard = () => {
         animate="show"
       >
         <motion.div variants={item} className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full gradient-gold flex items-center justify-center text-primary-foreground font-bold">
-              {profile?.full_name?.split(" ").map((n: string) => n[0]).join("") || "U"}
-            </div>
-            <div>
-              <h1 className="text-xl font-display text-foreground">
-                Hello, {profile?.full_name?.split(" ")[0] || "User"}
-              </h1>
-              <p className="text-sm text-muted-foreground capitalize">
-                {profile?.category?.replace("_", " ") || "Church Member"}
-              </p>
-            </div>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full gradient-gold flex items-center justify-center text-primary-foreground font-bold">
+            {profile?.full_name?.split(" ").map((n: string) => n[0]).join("") || "U"}
           </div>
+          <div>
+            <h1 className="text-xl font-display text-foreground">
+              Hello, {profile?.full_name?.split(" ")[0] || "User"}
+            </h1>
+            <p className="text-sm text-muted-foreground capitalize">
+              {profile?.role || "Member"}
+            </p>
+          </div>
+          <button
+            onClick={async () => {
+              await signOutCustom();
+              window.location.href = '/';
+            }}
+            className="px-4 py-1.5 bg-destructive/20 hover:bg-destructive text-destructive-foreground text-sm rounded-lg transition-all border border-destructive/30 hover:border-destructive"
+            title="Sign Out"
+          >
+            Sign Out
+          </button>
+        </div>
           <button className="w-10 h-10 rounded-full bg-muted flex items-center justify-center relative">
             <Bell className="w-5 h-5 text-muted-foreground" />
             <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />

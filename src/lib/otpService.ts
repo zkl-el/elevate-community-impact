@@ -89,7 +89,7 @@ class OTPService {
         console.error('VITE_SUPABASE_ANON_KEY is missing');
         return { success: false, error: 'Configuration error: missing Supabase anon key' };
       }
-      const response = await fetch(`${this.supabaseUrl}/functions/v1/verify-sms-otp`, {
+      const response = await fetch(`${this.supabaseUrl}/functions/v1/custom-phone-session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -113,9 +113,12 @@ class OTPService {
           : data.session_token && data.refresh_token
           ? { access_token: data.session_token, refresh_token: data.refresh_token }
           : null;
-      if (tokens) {
-        console.log('setting supabase session with tokens', tokens);
-        await supabase.auth.setSession(tokens);
+      // Custom session - store token in localStorage
+      if (data.access_token) {
+        localStorage.setItem('custom_access_token', data.access_token);
+        localStorage.setItem('custom_expires_at', data.expires_at);
+        localStorage.setItem('custom_user', JSON.stringify(data.user));
+        console.log('custom session set', data.access_token);
       }
       return data as VerifyResponse;
     } catch (error) {
@@ -170,4 +173,11 @@ class OTPService {
 }
 
 export const otpService = new OTPService();
+
+export const signOutCustom = async () => {
+  localStorage.removeItem('custom_access_token');
+  localStorage.removeItem('custom_expires_at');
+  localStorage.removeItem('custom_user');
+};
+
 

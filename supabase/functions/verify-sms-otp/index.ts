@@ -12,36 +12,66 @@ serve(async (req: Request) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      supabaseUrl,
+      serviceKey,
       { auth: { autoRefreshToken: false, persistSession: false } }
     ) as any;
+
+    const adminHeaders = {
+      apikey: serviceKey,
+      Authorization: `Service ${serviceKey}`,
+    };
 
     const { phone, otp } = await req.json();
     if (!phone || !otp) throw new Error('Phone and otp required');
 
-    let normalized = phone.replace(/[^0-9]/g, '');
-    if (normalized.startsWith('0')) normalized = '255' + normalized.slice(1);
-    const international = `+${normalized}`;
+    // Normalize phone number
+    let normalizedPhone = phone.trim();
+    normalizedPhone = normalizedPhone.replace(/\s+/g, "");
+    normalizedPhone = normalizedPhone.replace(/[^0-9+]/g, "");
+
+    if (normalizedPhone.startsWith("0")) {
+      normalizedPhone = "255" + normalizedPhone.slice(1);
+    }
+
+    if (normalizedPhone.startsWith("+255")) {
+      normalizedPhone = normalizedPhone.replace("+", "");
+    }
+
+    if (!normalizedPhone.startsWith("255") || normalizedPhone.length !== 12) {
+      throw new Error("Invalid phone number format");
+    }
+
+    const international = "0" + normalizedPhone.slice(3);
 
     // find matching unverified code
+    console.log(`Verifying OTP for phone ${international}, code: ${otp}`);
+
     const { data: record, error } = await supabaseClient
       .from('otp_codes')
       .select('*')
       .eq('phone', international)
       .eq('otp', otp)
       .eq('verified', false)
-      .lte('expires_at', new Date().toISOString())
+      .gte('expires_at', new Date().toISOString())
       .maybeSingle();
 
-    if (error) throw error;
+    if (error) {
+      console.error('OTP query error:', error);
+      throw error;
+    }
     if (!record) {
+      console.log(`No matching OTP found for ${international}, ${otp}`);
       return new Response(JSON.stringify({ success: false, error: 'Invalid or expired code' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    console.log('Valid OTP found, marking verified:', record.id);
 
     // mark verified
     await supabaseClient
@@ -49,7 +79,7 @@ serve(async (req: Request) => {
       .update({ verified: true })
       .eq('id', record.id);
 
-    // ensure profile exists
+    // ensure profile exists - create Supabase auth user first
     let user: any = null;
     const { data: existing } = await supabaseClient
       .from('profiles')
@@ -58,21 +88,51 @@ serve(async (req: Request) => {
       .maybeSingle();
 
     if (!existing) {
-      const { data: newUser } = await supabaseClient
+      // Create user in Supabase Auth
+      const email = `${normalizedPhone}@churchapp.local`;
+      const { data: authUser, error: authError } = await supabaseClient.auth.admin.createUser({
+        email,
+        password: Math.random().toString(36) + Date.now().toString(),
+        phone: international,
+        user_metadata: { phone: international, full_name: record.full_name }
+      });
+
+      if (authError) {
+        console.error('Failed to create auth user:', authError);
+        throw authError;
+      }
+
+      // Create profile with the auth user ID
+      const { data: newProfile, error: profileError } = await supabaseClient
         .from('profiles')
-        .insert({ phone: international, full_name: record.full_name, category: 'church_member' })
+        .insert({ 
+          id: authUser.user.id,
+          phone: international, 
+          full_name: record.full_name, 
+          category: 'church_member' 
+        })
         .single();
-      user = newUser;
+      
+      if (profileError) {
+        console.error('Failed to create profile:', profileError);
+        throw profileError;
+      }
+      
+      user = newProfile;
     } else {
       user = existing;
     }
 
-    // create a Supabase auth session for the user so the frontend can be logged in
+    // create a Supabase auth session for the user
     const { data: sessionData, error: sessionError } =
       await supabaseClient.auth.admin.createSession({
         user_id: user.id,
       });
-    if (sessionError) throw sessionError;
+    
+    if (sessionError) {
+      console.error('Failed to create session:', sessionError);
+      throw sessionError;
+    }
 
     const access_token = sessionData?.access_token;
     const refresh_token = sessionData?.refresh_token;

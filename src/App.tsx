@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
+
 import Dashboard from "./pages/Dashboard";
 
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
@@ -51,7 +51,7 @@ const AuthPage = () => {
     return <Navigate to="/dashboard" replace />;
   }
   
-  return <Auth />;
+  return <Navigate to="/" replace />;
 };
 
 const App = () => (
@@ -63,7 +63,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/auth" element={<Navigate to="/" replace />} /> 
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />

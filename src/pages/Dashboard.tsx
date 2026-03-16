@@ -5,7 +5,7 @@ import confetti from "canvas-confetti";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMemberDashboard, usePublicDashboard } from "@/hooks/useChurchData";
 import { supabase } from "@/lib/supabase";
-import { MOCK_CHURCH, MOCK_GROUPS, LEVELS } from "@/lib/mockData";
+import { LEVELS } from "@/lib/mockData";
 import Header from "@/components/church/Header";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +25,8 @@ import {
   Bell,
   Loader2,
   ArrowUpRight,
-  CheckCircle2
+  CheckCircle2,
+  X
 } from "lucide-react";
 import { toast } from "sonner";
 import * as LucideIcons from "lucide-react";
@@ -43,22 +44,7 @@ const LevelIcon = ({ name }: { name: string }) => {
   return <Icon className="w-5 h-5 text-primary" />;
 };
 
-const MOCK_PROFILE = {
-  id: "simulated",
-  full_name: "John Doe",
-  email: "",
-  phone: "+254700000000",
-  category: "church_member",
-  level: 1,
-  xp: 150,
-  annual_goal: 50000,
-  total_contributed: 12500,
-  streak: 5,
-  group_id: "1",
-  group_name: "Faith Warriors",
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-};
+
 
 // Full Payment Form (from GuestDashboard)
 const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: boolean }) => {
@@ -537,43 +523,71 @@ const ReportsSection = ({ profile, contributions }: { profile: any; contribution
 };
 
 const Dashboard = () => {
-  const { user, loading: authLoading, isSimulated, profile: authProfile } = useAuth();
+  const { user, loading: authLoading, profile: authProfile } = useAuth();
   const navigate = useNavigate();
   
   const [activePanel, setActivePanel] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (!authLoading && !user && !localStorage.getItem("user")) {
       navigate("/auth");
     }
   }, [authLoading, user, navigate]);
 
-  const queryUserId = isSimulated ? undefined : user?.id;
+  const queryUserId = user?.id;
   const { profileQuery, contributionsQuery, groupMembersQuery } = useMemberDashboard(queryUserId);
-  const { data: publicData } = usePublicDashboard();
+  const { data: publicData, isLoading: publicLoading, error: publicError } = usePublicDashboard();
 
-  if (authLoading) {
+
+  if (authLoading || profileQuery.isLoading || contributionsQuery.isLoading || publicLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (profileQuery.error || contributionsQuery.error || publicError) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
+            <X className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-foreground mb-2">Failed to Load Dashboard</h2>
+          <p className="text-muted-foreground mb-4">
+            Unable to load your dashboard data. Please try refreshing the page.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+          >
+            Refresh Page
+          </button>
+        </div>
       </div>
     );
   }
 
   const profile = authProfile || profileQuery.data;
-  const contributions = isSimulated ? [] : (contributionsQuery.data ?? []);
-  const groupMembers = isSimulated ? [] : (groupMembersQuery.data ?? []);
+  const contributions = contributionsQuery.data ?? [];
+  const groupMembers = groupMembersQuery.data ?? [];
+  const groupName = profile?.groups?.name || "My Group";
 
-  const balance = profile?.annual_goal - profile?.total_contributed;
-  const groupName = profile?.group_name || (profile as any)?.groups?.name || "No Group";
-  const churchGoal = publicData?.current_project?.target_amount || MOCK_CHURCH.annualGoal;
-  const churchCollected = publicData?.current_project?.collected_amount || MOCK_CHURCH.totalCollected;
-  const bestGroup = publicData?.best_group || MOCK_GROUPS[0];
+  // Use real data only - no mock fallbacks
+  const churchGoal = publicData?.current_project?.target_amount || 0;
+  const churchCollected = publicData?.current_project?.collected_amount || 0;
+  const bestGroup = publicData?.best_group;
   const projects = publicData?.current_project ? [publicData.current_project] : [];
 
+  const balance = profile?.annual_goal ? Math.max(0, profile.annual_goal - (profile.total_contributed || 0)) : 0;
   const groupProgress = groupMembers.length > 0
     ? groupMembers.reduce((sum: number, m: any) => sum + (m.annual_goal > 0 ? (m.total_contributed / m.annual_goal) * 100 : 0), 0) / groupMembers.length
     : 0;
+
 
   const handleAction = (actionId: string) => {
     setActivePanel(prev => prev === actionId ? null : actionId);
@@ -588,9 +602,10 @@ const Dashboard = () => {
       case "contribute":
         return (
           <div className="rounded-2xl p-4" style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #0f2744 50%, #1a3a5c 100%)" }}>
-            <PaymentForm userId={user?.id} />
+            <PaymentForm userId={user?.id} isSimulated={false} />
           </div>
         );
+
       case "pledge":
         return <PledgeGoalForm userId={user?.id} />;
       case "my-contributions":
@@ -603,6 +618,7 @@ const Dashboard = () => {
         return (
           <div className="rounded-2xl p-4" style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #0f2744 50%, #1a3a5c 100%)" }}>
             <GroupMembersList members={groupMembers} groupName={groupName} />
+
           </div>
         );
       case "projects":
@@ -658,15 +674,16 @@ const Dashboard = () => {
         </motion.div>
 
         <motion.div variants={item}>
-          <OverviewCard
-            churchGoal={churchGoal}
-            churchCollected={churchCollected}
-            bestGroup={(bestGroup as any) ? {
-              name: (bestGroup as any).name || "Unknown Group",
-              total: (bestGroup as any).total || (bestGroup as any).totalContributed || 0,
-            } : null}
-            myRemainingGoal={Math.max(0, balance || 0)}
-          />
+        <OverviewCard
+          churchGoal={churchGoal}
+          churchCollected={churchCollected}
+          bestGroup={(bestGroup as any) ? {
+            name: (bestGroup as any).name || "Unknown Group",
+            total: (bestGroup as any).total || (bestGroup as any).totalContributed || 0,
+          } : null}
+          myRemainingGoal={balance}
+        />
+
         </motion.div>
 
         <motion.div variants={item}>

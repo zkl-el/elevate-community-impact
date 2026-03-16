@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Heart, TrendingUp, Users, GraduationCap, Church, Eye, UserCheck, X, Construction, LogIn, UserPlus, MessageCircle, Phone, ArrowLeft, CheckCircle2 } from "lucide-react";
@@ -31,7 +32,7 @@ const Index = () => {
   const [authDropdown, setAuthDropdown] = useState<"signin" | "signup" | null>(null);
   const [selectedGuestCategory, setSelectedGuestCategory] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { refreshProfile } = useAuth();
+  const { refreshProfile, user, loading } = useAuth();
 
   // Hero slideshow state
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -49,22 +50,21 @@ const Index = () => {
     return () => clearInterval(interval);
   }, [heroImages.length]);
 
-  // Listen for custom event to open auth dropdown from header
+  // Auto-redirect authenticated users to dashboard (instant)
   useEffect(() => {
-    const handleOpenAuth = () => {
-      setAuthDropdown("signin");
-    };
-    window.addEventListener('openAuthDropdown', handleOpenAuth);
-    return () => window.removeEventListener('openAuthDropdown', handleOpenAuth);
-  }, []);
+    if (!loading && user) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [user, loading, navigate]);
 
-  // Auth form state
+
+  // Auth form state - simplified to match Auth.tsx
   const [authLoading, setAuthLoading] = useState(false);
-  const [authStep, setAuthStep] = useState<"details" | "otp">("details");
+  const [isSignup, setIsSignup] = useState(true);
+  const [authStep, setAuthStep] = useState<"phone" | "otp">("phone");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
-  const [generatedOTP, setGeneratedOTP] = useState("");
   const [otpCountdown, setOtpCountdown] = useState(0);
 
   // Guest payment form state
@@ -91,81 +91,64 @@ const Index = () => {
     setExpandedCard(expandedCard === index ? null : index);
   };
 
-  // Auth handlers
-  const handleSignup = async (e: React.FormEvent) => {
+  // Auth handlers - simplified to match Auth.tsx
+  const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName || fullName.trim().length < 2) {
-      toast.error("Please enter your full name");
-      return;
-    }
-    if (!phone || phone.length < 9) {
-      toast.error("Please enter a valid phone number");
-      return;
-    }
-
-    setAuthLoading(true);
-    try {
-      const result = await otpService.generateOTP(phone, fullName);
-      if (result.success) {
-        setAuthStep("otp");
-        setOtpCountdown(300);
-        toast.success("Verification code sent to your phone!");
-        startCountdown();
-      } else {
-        toast.error(result.error || "Failed to send code");
+    if (isSignup) {
+      if (!fullName.trim()) {
+        toast.error("Enter your full name");
+        return;
       }
-    } catch (error) {
-      toast.error("An error occurred. Please try again.");
-    } finally {
+      if (phone.length < 9) {
+        toast.error("Enter valid phone (9+ digits)");
+        return;
+      }
+      setAuthLoading(true);
+      const result = await otpService.generateOTP(phone, fullName.trim(), 'signup');
       setAuthLoading(false);
-    }
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!phone || phone.length < 9) {
-      toast.error("Please enter a valid phone number");
-      return;
-    }
-    setAuthLoading(true);
-    try {
-      const result = await otpService.generateOTP(phone);
       if (result.success) {
         setAuthStep("otp");
         setOtpCountdown(300);
         startCountdown();
-        toast.success("Verification code sent to your phone!");
+        toast.success("OTP sent to " + phone);
       } else {
-        toast.error(result.error || "Failed to send code");
+        toast.error(result.error);
       }
-    } catch (error) {
-      toast.error("An error occurred. Please try again.");
-    } finally {
+    } else {
+      if (phone.length < 9) {
+        toast.error("Enter phone (0XXXXXXXXX)");
+        return;
+      }
+      setAuthLoading(true);
+      const result = await otpService.generateOTP(phone, undefined, 'signin');
       setAuthLoading(false);
+      if (result.success) {
+        setAuthStep("otp");
+        setOtpCountdown(300);
+        startCountdown();
+        toast.success("OTP sent to " + phone);
+      } else {
+        toast.error(result.error);
+      }
     }
   };
 
-  // called when we are on the OTP verification step
-  const handleVerifyOTP = async (e: React.FormEvent) => {
+  const verifyOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     if (otp.length !== 6) {
-      toast.error("Enter the 6‑digit code");
+      toast.error("Enter 6-digit OTP");
       return;
     }
-
     setAuthLoading(true);
     try {
       const result = await otpService.verifyOTP(phone, otp);
       if (result.success) {
-        toast.success("Authenticated successfully!");
-        // refresh auth context profile and close dropdown
-        await refreshProfile();
-        setAuthDropdown(null);
-        resetAuthForm();
-      } else {
-        toast.error(result.error || "Invalid or expired code");
+        localStorage.setItem("user", JSON.stringify(result.user));
+        toast.success("Logged in!");
+        navigate("/dashboard", { replace: true });
+        toast.error(result.error || "Invalid OTP");
       }
-    } catch (error) {
+    } catch (err) {
       toast.error("An error occurred during verification.");
     } finally {
       setAuthLoading(false);
@@ -186,24 +169,9 @@ const Index = () => {
     }, 1000);
   };
 
-  const handleResendOTP = async () => {
+  const resendOTP = async () => {
     if (otpCountdown > 0) return;
-    setAuthLoading(true);
-    try {
-      const result = await otpService.generateOTP(phone);
-      if (result.success) {
-        setOtp("");
-        setOtpCountdown(300);
-        toast.success("New code sent!");
-        startCountdown();
-      } else {
-        toast.error(result.error || "Failed to resend");
-      }
-    } catch (error) {
-      toast.error("An error occurred.");
-    } finally {
-      setAuthLoading(false);
-    }
+    await handlePhoneSubmit({ preventDefault: () => {} } as any);
   };
 
   const formatCountdown = (seconds: number) => {
@@ -347,11 +315,10 @@ const Index = () => {
   };
 
   const resetAuthForm = () => {
-    setAuthStep("details");
+    setAuthStep("phone");
     setFullName("");
     setPhone("");
     setOtp("");
-    setGeneratedOTP("");
     setOtpCountdown(0);
     setAuthDropdown(null);
   };
@@ -359,7 +326,8 @@ const Index = () => {
   const handleCategoryClick = (category: typeof CATEGORIES[0]) => {
     if (category.requiresAuth) {
       setShowPicker(false);
-      setAuthDropdown("signin");
+      setIsSignup(true); // Default to signup for new members
+      setAuthDropdown("signup");
     } else {
       setShowPicker(false);
       setSelectedGuestCategory(category.id);
@@ -599,7 +567,7 @@ const Index = () => {
         )}
       </AnimatePresence>
 
-      {/* Auth Dropdown - Inline Sign In/Sign Up */}
+      {/* Auth Dropdown - Simplified to match Auth.tsx */}
       <AnimatePresence>
         {authDropdown && (
           <motion.div
@@ -610,189 +578,148 @@ const Index = () => {
             onClick={() => { setAuthDropdown(null); resetAuthForm(); }}
           >
             <motion.div
-              className="relative w-[90vw] sm:w-full max-w-md rounded-3xl shadow-2xl overflow-hidden"
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="w-full max-w-sm p-8 rounded-3xl shadow-2xl backdrop-blur-xl bg-white/10 border border-white/20"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5 }}
               onClick={(e) => e.stopPropagation()}
-              style={{
-                backgroundImage: 'url(/sda_clean_super.png)',
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat',
-              }}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-church-blue/90 via-church-blue/85 to-church-blue-dark/90" />
-              
-              <div className="relative z-10 p-6 sm:p-8">
-                {/* Close button */}
-                <button 
-                  onClick={() => { setAuthDropdown(null); resetAuthForm(); }} 
-                  className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-
-                {/* Header */}
-                <div className="text-center mb-6">
-                  <div className="w-16 h-16 rounded-2xl bg-white/95 flex items-center justify-center mx-auto mb-4 shadow-lg">
-                    <img src="/sda_clean_super.png" alt="SDA Logo" className="w-10 h-10 object-contain" />
-                  </div>
-                  <h2 className="text-2xl font-display text-white">Welcome</h2>
-                  <p className="text-xs font-semibold text-gold-light mt-1">
-                    {authStep === "otp" ? "Verify your phone" : authDropdown === "signup" ? "Create your account" : "Sign in with your phone"}
-                  </p>
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 mx-auto mb-4 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-xl">
+                  <Phone className="w-8 h-8 text-blue-200" />
                 </div>
+                <h1 className="text-2xl font-bold text-white mb-2">
+                  {authStep === "otp" ? "Enter Code" : isSignup ? "Sign Up" : "Sign In"}
+                </h1>
+                <p className="text-blue-200 text-sm">
+                  {authStep === "otp" ? `Sent to ${phone}` : isSignup ? "Enter name and phone to receive OTP" : "Enter phone to sign in"}
+                </p>
 
-                {/* Login/Signup Toggle */}
-                {authStep === "details" && (
-                  <div className="flex items-center justify-center gap-2 mb-4">
+                {authStep === "phone" && (
+                  <div className="flex items-center justify-center gap-2 mt-4">
                     <button
                       type="button"
-                      onClick={() => setAuthDropdown("signin")}
+                      onClick={() => setIsSignup(true)}
                       className={`px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1 ${
-                        authDropdown === "signin" 
-                          ? "bg-gold text-primary font-semibold" 
-                          : "bg-white/20 text-white/70"
-                      }`}
-                    >
-                      <LogIn className="w-3 h-3" />
-                      Login
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAuthDropdown("signup")}
-                      className={`px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1 ${
-                        authDropdown === "signup" 
-                          ? "bg-gold text-primary font-semibold" 
+                        isSignup
+                          ? "bg-gold text-primary font-semibold"
                           : "bg-white/20 text-white/70"
                       }`}
                     >
                       <UserPlus className="w-3 h-3" />
                       Sign Up
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsSignup(false)}
+                      className={`px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1 ${
+                        !isSignup
+                          ? "bg-gold text-primary font-semibold"
+                          : "bg-white/20 text-white/70"
+                      }`}
+                    >
+                      <LogIn className="w-3 h-3" />
+                      Sign In
+                    </button>
                   </div>
                 )}
-
-                {/* Auth Forms */}
-                <div className="space-y-4">
-                  {authStep === "details" ? (
-                    authDropdown === "signup" ? (
-                      <form onSubmit={handleSignup} className="space-y-4">
-                        <div className="space-y-3">
-                          <Input
-                            type="text"
-                            placeholder="Full Name"
-                            value={fullName}
-                            onChange={(e) => setFullName(e.target.value)}
-                            className="text-center text-lg h-14 rounded-xl border-border/50 bg-white/95 backdrop-blur-sm"
-                          />
-                          <Input
-                            type="tel"
-                            placeholder="Phone number"
-                            value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
-                            className="text-center text-lg h-14 rounded-xl border-border/50 bg-white/95 backdrop-blur-sm"
-                          />
-                        </div>
-                        <motion.button
-                          type="submit"
-                          disabled={authLoading}
-                          className="w-full flex items-center justify-center gap-2 h-14 rounded-xl gradient-gold text-white font-semibold text-lg transition-transform disabled:opacity-50 shadow-lg"
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                        >
-                          {authLoading ? "Sending Code..." : "Send Verification Code"}
-                          {!authLoading && <MessageCircle className="w-5 h-5" />}
-                        </motion.button>
-                      </form>
-                    ) : (
-                      <form onSubmit={handleLogin} className="space-y-4">
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-center gap-2 mb-2">
-                            <Phone className="w-5 h-5 text-white/80" />
-                            <span className="text-white/80 text-sm">Phone Number</span>
-                          </div>
-                          <Input
-                            type="tel"
-                            placeholder="Enter your phone number"
-                            value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
-                            className="text-center text-lg h-14 rounded-xl border-border/50 bg-white/95 backdrop-blur-sm"
-                          />
-                        </div>
-                        <motion.button
-                          type="submit"
-                          disabled={authLoading}
-                          className="w-full flex items-center justify-center gap-2 h-14 rounded-xl gradient-gold text-white font-semibold text-lg transition-transform disabled:opacity-50 shadow-lg"
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                        >
-                          {authLoading ? "Signing in..." : "Sign In"}
-                          {!authLoading && <ArrowRight className="w-5 h-5" />}
-                        </motion.button>
-                      </form>
-                    )
-                  ) : (
-                    <form onSubmit={handleVerifyOTP} className="space-y-4">
-                      <div className="space-y-2">
-                        <p className="text-sm text-white/80 text-center">
-                          Enter the code sent to {phone}
-                        </p>
-                        <div className="flex justify-center">
-                          <InputOTP
-                            value={otp}
-                            onChange={(value) => setOtp(value)}
-                            maxLength={6}
-                            className="gap-2"
-                          >
-                            <InputOTPGroup>
-                              <InputOTPSlot index={0} className="h-12 w-10 bg-white/95" />
-                              <InputOTPSlot index={1} className="h-12 w-10 bg-white/95" />
-                              <InputOTPSlot index={2} className="h-12 w-10 bg-white/95" />
-                              <InputOTPSlot index={3} className="h-12 w-10 bg-white/95" />
-                              <InputOTPSlot index={4} className="h-12 w-10 bg-white/95" />
-                              <InputOTPSlot index={5} className="h-12 w-10 bg-white/95" />
-                            </InputOTPGroup>
-                          </InputOTP>
-                        </div>
-                      </div>
-                      
-                      <motion.button
-                        type="submit"
-                        disabled={authLoading || otp.length !== 6}
-                        className="w-full flex items-center justify-center gap-2 h-14 rounded-xl gradient-gold text-white font-semibold text-lg transition-transform disabled:opacity-50 shadow-lg"
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        {authLoading ? "Verifying..." : "Verify & Sign Up"}
-                        {!authLoading && <ArrowRight className="w-5 h-5" />}
-                      </motion.button>
-                      
-                      <div className="flex items-center justify-center gap-2 text-sm">
-                        <span className="text-white/60">Didn't receive code?</span>
-                        <button
-                          type="button"
-                          onClick={handleResendOTP}
-                          disabled={otpCountdown > 0 || authLoading}
-                          className="text-gold-light hover:text-gold transition-colors disabled:opacity-50"
-                        >
-                          {otpCountdown > 0 ? `Resend in ${formatCountdown(otpCountdown)}` : "Resend Code"}
-                        </button>
-                      </div>
-                      
-                      <button
-                        type="button"
-                        onClick={() => { setAuthStep("details"); setOtp(""); setGeneratedOTP(""); }}
-                        className="w-full text-white/60 text-sm hover:text-white transition-colors"
-                      >
-                        Go Back
-                      </button>
-                    </form>
-                  )}
-                </div>
               </div>
+
+              {authStep === "phone" ? (
+                <form onSubmit={handlePhoneSubmit} className="space-y-4">
+                  {isSignup && (
+                    <Input
+                      placeholder="Full Name"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="h-14 text-lg text-center rounded-2xl bg-white/90 backdrop-blur-sm border-2 border-white/30 focus:border-gold focus:ring-2 focus:ring-gold/30"
+                    />
+                  )}
+                  <Input
+                    type="tel"
+                    placeholder={isSignup ? "0712345678 or 255712345678" : "0712345678"}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                    className="h-14 text-lg text-center rounded-2xl bg-white/90 backdrop-blur-sm border-2 border-white/30 focus:border-gold focus:ring-2 focus:ring-gold/30"
+                  />
+
+                  <motion.button
+                    type="submit"
+                    disabled={authLoading}
+                    className="w-full h-14 rounded-2xl bg-gradient-to-r from-gold to-amber-500 text-white font-semibold text-lg shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    {authLoading ? (
+                      <span className="flex items-center gap-2">
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        {isSignup ? "Sending OTP..." : "Signing in..."}
+                      </span>
+                    ) : (
+                      isSignup ? "Send OTP" : "Sign In"
+                    )}
+                  </motion.button>
+                </form>
+              ) : (
+                <form onSubmit={verifyOTP} className="space-y-4">
+                  <div className="flex justify-center mb-4">
+                    <InputOTP
+                      value={otp}
+                      onChange={setOtp}
+                      maxLength={6}
+                      className="gap-2"
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} className="h-14 w-12 bg-white/90 backdrop-blur-sm rounded-xl border-2 border-white/30 text-lg font-mono tracking-widest" />
+                        <InputOTPSlot index={1} className="h-14 w-12 bg-white/90 backdrop-blur-sm rounded-xl border-2 border-white/30 text-lg font-mono tracking-widest" />
+                        <InputOTPSlot index={2} className="h-14 w-12 bg-white/90 backdrop-blur-sm rounded-xl border-2 border-white/30 text-lg font-mono tracking-widest" />
+                        <InputOTPSlot index={3} className="h-14 w-12 bg-white/90 backdrop-blur-sm rounded-xl border-2 border-white/30 text-lg font-mono tracking-widest" />
+                        <InputOTPSlot index={4} className="h-14 w-12 bg-white/90 backdrop-blur-sm rounded-xl border-2 border-white/30 text-lg font-mono tracking-widest" />
+                        <InputOTPSlot index={5} className="h-14 w-12 bg-white/90 backdrop-blur-sm rounded-xl border-2 border-white/30 text-lg font-mono tracking-widest" />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+                  <motion.button
+                    type="submit"
+                    disabled={authLoading || otp.length !== 6}
+                    className="w-full h-14 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold text-lg shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    {authLoading ? (
+                      <span className="flex items-center gap-2">
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Verifying...
+                      </span>
+                    ) : (
+                      "Continue to Dashboard"
+                    )}
+                  </motion.button>
+                  <div className="flex items-center justify-center gap-2 text-xs text-white/70">
+                    <span>Didn't get code?</span>
+                    <button
+                      type="button"
+                      onClick={resendOTP}
+                      disabled={otpCountdown > 0 || authLoading}
+                      className="text-gold hover:text-gold/80 font-semibold transition-colors disabled:opacity-50"
+                    >
+                      {otpCountdown > 0 ? formatCountdown(otpCountdown) : "Resend"}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthStep("phone");
+                      setFullName("");
+                      setPhone("");
+                      setOtp("");
+                    }}
+                    className="w-full text-white/70 hover:text-white text-sm transition-colors py-2"
+                  >
+                    Change Details
+                  </button>
+                </form>
+              )}
             </motion.div>
           </motion.div>
         )}

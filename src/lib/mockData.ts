@@ -1,23 +1,8 @@
-// Mock data for the church fundraising system
-export const MOCK_CHURCH = {
-  name: "Chuo Kikuu SDA Church",
-  annualGoal: 500000,
-  totalCollected: 187500,
-  currentProject: {
-    name: "New Community Center",
-    targetAmount: 200000,
-    collectedAmount: 78500,
-    description: "Building a modern community center for worship, fellowship, and outreach programs.",
-  },
-};
-
-export const MOCK_GROUPS = [
-  { id: "1", name: "Faith Warriors", totalContributed: 52000, memberCount: 24, leaderId: "u1" },
-  { id: "2", name: "Living Waters", totalContributed: 45800, memberCount: 18, leaderId: "u2" },
-  { id: "3", name: "Kingdom Builders", totalContributed: 38200, memberCount: 21, leaderId: "u3" },
-  { id: "4", name: "Shining Stars", totalContributed: 31500, memberCount: 15, leaderId: "u4" },
-  { id: "5", name: "Grace Givers", totalContributed: 20000, memberCount: 12, leaderId: "u5" },
-];
+// Mock data - no longer used by dashboard (real Supabase data)
+/* 
+MOCK_CHURCH, MOCK_GROUPS - Legacy for docs/design only
+Dashboard uses: useChurchData.ts → Supabase RPC/queries
+*/
 
 export const MOCK_USER = {
   id: "u10",

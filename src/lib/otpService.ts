@@ -24,17 +24,19 @@ export interface VerifyResponse {
   error?: string;
 }
 
+export interface SignInResponse extends VerifyResponse {}
+
 class OTPService {
   private supabaseUrl: string = 'https://lyriycokryccjrhuqqmj.supabase.co';
 
-  async generateOTP(phone: string, fullName?: string): Promise<OTPResponse> {
+  async generateOTP(phone: string, fullName?: string, mode: 'signup' | 'signin' = 'signup'): Promise<OTPResponse> {
     // Format phone to +255XXXXXXXXX
     let normalized = phone.replace(/\D/g, '');
     if (normalized.startsWith('0')) normalized = '255' + normalized.slice(1);
     if (!normalized.startsWith('255')) normalized = '255' + normalized; // fallback
     normalized = '+' + normalized;
 
-    console.log('generateOTP called with', normalized, fullName);
+    console.log('generateOTP called with', normalized, fullName, mode);
 
     try {
       const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -49,7 +51,7 @@ class OTPService {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${anonKey}`,
         },
-        body: JSON.stringify({ phone: normalized, full_name: fullName }),
+        body: JSON.stringify({ phone: normalized, full_name: fullName, mode }),
       });
 
       const data = await response.json();
@@ -122,6 +124,47 @@ class OTPService {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to verify OTP',
       };
+    }
+  }
+
+  async signIn(phone: string): Promise<SignInResponse> {
+    // Normalize to TZ 0XXXXXXXXX
+    let normalized = phone.replace(/\D/g, '');
+    if (normalized.startsWith('255')) {
+      normalized = '0' + normalized.slice(3);
+    }
+    // else assume 0.. or error in func
+
+    console.log('signIn called with', normalized);
+
+    try {
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      if (!anonKey) {
+        return { success: false, error: 'Missing anon key' };
+      }
+
+      const response = await fetch(`${this.supabaseUrl}/functions/v1/sign-in`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({ phone: normalized }),
+      });
+
+      const data = await response.json();
+      console.log('sign-in response', response.status, data);
+      if (!response.ok) {
+        return { success: false, error: data.error || 'Sign in failed' };
+      }
+      const tokens = { access_token: data.access_token, refresh_token: data.refresh_token };
+      if (tokens.access_token) {
+        await supabase.auth.setSession(tokens);
+      }
+      return data as SignInResponse;
+    } catch (error) {
+      console.error('Sign in error:', error);
+      return { success: false, error: 'Sign in failed' };
     }
   }
 }

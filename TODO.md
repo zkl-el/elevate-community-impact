@@ -1,44 +1,19 @@
-# OTP & SMS Integration - 403 FIXED with Mock Mode ✅
+# Supabase Native Phone Auth Migration
 
-## Issue Resolved
-**SMS provider credentials (0712686839:0712686839) invalid** - API returns 403 "Not Authorized".
-- Code/auth correct.
-- Account likely no balance/sender unapproved.
+**Current:** Custom SMS provider + edge functions.
 
-## Mock SMS Implemented
-Updated `supabase/functions/send-sms-otp/index.ts`:
-- New env var `MOCK_SMS=true` → Logs OTP to console, stores in DB, skips real SMS.
-- Bypasses 403 for dev/testing.
-- Real SMS still works if creds fixed later.
+**Goal:** Native Supabase auth.signInWithOtp / verifyOtp.
 
-## Activate Mock Mode
-1. Supabase Dashboard: https://supabase.com/dashboard/project/lyriycokryccjrhuqqmj/settings/functions/send-sms-otp
-2. **Environment Variables** → Add:
-   | Variable | Value |
-   |----------|-------|
-   | `MOCK_SMS` | `true` |
-   | `SMS_USERNAME` | `0712686839` | 
-   | `SMS_PASSWORD` | `0712686839` |
-3. **Deploy**.
+**Plan:**
+1. [ ] otpService: Add nativeSignInWithPhone(phone) → supabase.auth.signInWithOtp({phone})
+2. [ ] otpService: Add nativeVerifyOtp(phone, otp) → supabase.auth.verifyOtp({phone, token: otp, type: 'sms'})
+3. [ ] Index.tsx: Replace otpService.generateOTP/verifyOTP → native methods.
+4. [ ] Dashboard.tsx: Use supabase.auth.getSession() check.
+5. [ ] Test redirect.
+6. [ ] Keep SMS provider? Check Supabase SMS config.
+7. Deploy if needed.
 
-## Test Signup Flow
-```
-npm run dev  # already running http://localhost:8080/
-```
-- Go /auth → Enter TZ phone (0712345678).
-- Check Supabase **Edge Functions > send-sms-otp > Logs** for "MOCK SMS to +255...".
-- Query DB `otp_codes` for OTP (or enter guessed 6-digit).
-- Verify → dashboard redirect.
+**Info:** Custom SMS used because Supabase default SMS limited. Backend creates auth.user + session.
 
-## Provider Fix Later
-- Login https://messaging-service.co.tz → check balance/API keys/sender approval.
-- Update dashboard creds → set `MOCK_SMS=false` → redeploy.
-
-## Status
-- [x] Mock SMS bypasses 403 error
-- [x] Full signup flow works (DB OTP)
-- [ ] Real SMS (get valid creds)
-- [ ] Production deployment
-
-SMS signup error fixed!
+Proceed with native?
 

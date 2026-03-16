@@ -19,38 +19,77 @@ serve(async (req: Request) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     ) as any;
 
-    const { phone, full_name } = await req.json();
+    const { phone, full_name, mode } = await req.json();
     if (!phone) throw new Error('Phone number is required');
+    if (!mode || !['signup', 'signin'].includes(mode)) throw new Error('mode must be "signup" or "signin"');
 
-    // normalize to +255XXXXXXXXX
-    let normalized = phone.replace(/[^0-9]/g, '');
-    if (normalized.startsWith('0')) normalized = '255' + normalized.slice(1);
-    if (!normalized.startsWith('255')) {
-      throw new Error('Phone must start with 255');
-    }
-    if (normalized.length !== 12) {
-      throw new Error('Phone must be 255XXXXXXXXX (12 digits)');
-    }
-    const international = `+${normalized}`;
+    // Normalize phone number
+    let normalizedPhone = phone.trim();
+    normalizedPhone = normalizedPhone.replace(/\s+/g, "");
+    normalizedPhone = normalizedPhone.replace(/[^0-9+]/g, "");
 
-    // rate limit last hour
+    if (normalizedPhone.startsWith("0")) {
+      normalizedPhone = "255" + normalizedPhone.slice(1);
+    }
+
+    if (normalizedPhone.startsWith("+255")) {
+      normalizedPhone = normalizedPhone.replace("+", "");
+    }
+
+    if (!normalizedPhone.startsWith("255") || normalizedPhone.length !== 12) {
+      throw new Error("Invalid phone number format");
+    }
+
+    const international = "0" + normalizedPhone.slice(3);
+
+    // rate limit: allow 15 requests per hour per phone
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const { data: recent } = await supabaseClient
       .from('otp_codes')
       .select('id')
       .eq('phone', international)
       .gte('created_at', oneHourAgo)
-      .limit(4);
-    if (recent && recent.length >= 3) {
-      throw new Error('Too many requests. Try again later.');
+      .limit(16);
+    if (recent && recent.length >= 15) {
+      throw new Error('Too many requests. Please try again later (max 15/hour).');
     }
 
     // clean expired
-    await supabaseClient
+    const { error: deleteError } = await supabaseClient
       .from('otp_codes')
-      .update({ verified: true })
+      .delete()
       .eq('phone', international)
       .lte('expires_at', new Date().toISOString());
+    if (deleteError) console.warn('Cleanup error:', deleteError);
+    
+    // Mode-based user existence validation
+    const { data: existingUser } = await supabaseClient
+      .from('profiles')
+      .select('id')
+      .eq('phone', international)
+      .maybeSingle();
+
+    if (mode === 'signup' && existingUser) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'User already exists. Please sign in.' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    if (mode === 'signin' && !existingUser) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'User does not exist. Please sign up.' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log(`Cleaned expired OTPs for ${international}`);
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
@@ -59,6 +98,7 @@ serve(async (req: Request) => {
       .from('otp_codes')
       .insert({ phone: international, otp, expires_at: expiresAt, full_name });
     if (insertError) throw insertError;
+    console.log(`OTP inserted for ${international}: ${otp}, expires ${expiresAt}`);
 
     // Mock SMS mode for dev/testing - skips real SMS
     if (Deno.env.get('MOCK_SMS') === 'true') {
@@ -68,28 +108,42 @@ serve(async (req: Request) => {
       });
     }
 
-    // Real SMS provider
-    const username = '0712686839';
-    const password = '0712686839';
+    // Get SMS credentials from environment variables
+    const username = Deno.env.get("SMS_USERNAME");
+    const password = Deno.env.get("SMS_PASSWORD");
+
+    if (!username || !password) {
+      throw new Error("SMS credentials not configured");
+    }
+
     const auth = btoa(`${username}:${password}`);
 
+    // Real SMS provider
+    const smsPayload = {
+      from: "CHUOKKUUSDA",
+      to: normalizedPhone,
+      text: `Your verification code is ${otp}`,
+      reference: `otp-${Date.now()}`
+    };
+    console.log('SMS request:', JSON.stringify(smsPayload));
+    console.log("SMS SENT TO:", normalizedPhone);
+    
     const smsResp = await fetch('https://messaging-service.co.tz/api/sms/v1/text/single', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': `Basic ${auth}`,
+        "Authorization": `Basic ${auth}`,
+        "Content-Type": "application/json",
+        "Accept": "application/json"
       },
-      body: JSON.stringify({
-        from: 'NEXTSMS',
-        to: international,
-        text: `Your verification code is ${otp}`,
-      }),
+      body: JSON.stringify(smsPayload),
     });
+    
+    const smsResult = await smsResp.text();
+    console.log('SMS STATUS:', smsResp.status);
+    console.log('SMS RESPONSE:', smsResult);  
 
     if (!smsResp.ok) {
-      const txt = await smsResp.text();
-      console.error('SMS error', smsResp.status, txt);
+      console.error('SMS error', smsResp.status, smsResult);
       throw new Error(`SMS provider failed: ${smsResp.status}`);
     }
 

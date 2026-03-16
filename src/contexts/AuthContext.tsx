@@ -84,6 +84,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         fetchProfile(session.user.id);
         fetchRoles(session.user.id);
       }
+      setLoading(false);
     });
 
     const {
@@ -98,6 +99,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setProfile(null);
         setRoles([]);
       }
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();

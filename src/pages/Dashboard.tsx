@@ -6,7 +6,7 @@ import confetti from "canvas-confetti";
 import { getSession, clearSession } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { useMemberDashboard, usePublicDashboard } from "@/hooks/useChurchData";
-import { createSupabaseClient } from "@/lib/supabase";
+import { createSupabaseClient } from "@/lib/client";
 import { LEVELS } from "@/lib/mockData";
 import Header from "@/components/church/Header";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 // Dashboard Components
 import OverviewCard from "@/components/dashboard/OverviewCard";
 import ActionButtonsGrid, { actions } from "@/components/dashboard/ActionButtonsGrid";
-import PledgeGoalForm from "@/components/dashboard/PledgeGoalForm";
+// import PledgeGoalForm from "@/components/dashboard/PledgeGoalForm";
 
 // Icons
 import { 
@@ -121,7 +121,7 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
       toast.success(isSimulated ? "Contribution recorded! (Demo Mode)" : "Contribution recorded!");
       
       if (!isSimulated && userId) {
-        await supabase.from("contributions").insert({
+const supabase = createSupabaseClient();      await supabase.from("contributions").insert({
           user_id: userId,
           amount: numericAmount,
           method: paymentType === "mobile_money" ? "mobile_money" : "bank_transfer",

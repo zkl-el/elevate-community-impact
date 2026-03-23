@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Target, Calendar, Loader2, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { createSupabaseClient } from "@/lib/supabase";
+import { createSupabaseClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
 interface PledgeGoalFormProps {
@@ -43,33 +43,7 @@ const PledgeGoalForm = ({
     try {
       if (userId) {
         // Check if pledge already exists for this user and year
-        const { data: existingPledge } = await supabase
-          .from("pledges")
-          .select("id")
-          .eq("user_id", userId)
-          .eq("year", parseInt(year, 10))
-          .maybeSingle();
-
-        if (existingPledge) {
-          // Update existing pledge
-          const { error } = await supabase
-            .from("pledges")
-            .update({ pledge_amount: amount })
-            .eq("id", existingPledge.id);
-
-          if (error) throw error;
-        } else {
-          // Insert new pledge
-          const { error } = await supabase
-            .from("pledges")
-            .insert({
-              user_id: userId,
-              pledge_amount: amount,
-              year: parseInt(year, 10),
-            });
-
-          if (error) throw error;
-        }
+const supabase = createSupabaseClient();\n        const { data: existingPledge } = await supabase\n          .from("pledges")\n          .select("id")\n          .eq("user_id", userId)\n          .eq("year", parseInt(year, 10))\n          .maybeSingle();\n\n        if (existingPledge) {\n          // Update existing pledge\n          const { error } = await supabase\n            .from("pledges")\n            .update({ pledge_amount: amount })\n            .eq("id", existingPledge.id);\n\n          if (error) throw error;\n        } else {\n          // Insert new pledge\n          const { error } = await supabase\n            .from("pledges")\n            .insert({\n              user_id: userId,\n              pledge_amount: amount,\n              year: parseInt(year, 10),\n            });\n\n          if (error) throw error;\n        }
 
         setShowSuccess(true);
         toast.success("Pledge saved successfully!");

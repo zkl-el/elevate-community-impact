@@ -9,7 +9,7 @@ import Index from "./pages/Index";
 
 import Dashboard from "./pages/Dashboard";
 
-import FinanceAdminDashboard from "./pages/FinanceAdminDashboard";
+// import FinanceAdminDashboard from "./pages/FinanceAdminDashboard";
 import GuestDashboard from "./pages/GuestDashboard";
 import NotFound from "./pages/NotFound";
 
@@ -41,7 +41,7 @@ const App = () => (
                 <Dashboard />
               </ProtectedRoute>
             } />
-            <Route path="/finance" element={<FinanceAdminDashboard />} />
+            {/* <Route path="/finance" element={<FinanceAdminDashboard />} /> */}
             <Route path="/guest-dashboard" element={<GuestDashboard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

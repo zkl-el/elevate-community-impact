@@ -34,11 +34,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { phone } = await req.json();
+    const { phone, otp, full_name } = await req.json();
 
-    if (!phone) {
+    if (!phone || !otp) {
       return new Response(
-        JSON.stringify({ success: false, error: "Phone number is required" }),
+        JSON.stringify({ success: false, error: "Phone and OTP are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -49,53 +49,108 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Find existing user
-    const { data: user, error: userError } = await supabase
+    // Find valid OTP
+    const { data: otpRecord, error: otpError } = await supabase
+      .from("otp_codes")
+      .select("*")
+      .eq("phone", normalizedPhone)
+      .eq("otp", otp)
+      .eq("verified", false)
+      .gte("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (otpError || !otpRecord) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Invalid or expired OTP" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Mark OTP as verified
+    await supabase
+      .from("otp_codes")
+      .update({ verified: true })
+      .eq("id", otpRecord.id);
+
+    // Find or create user
+    let { data: user } = await supabase
       .from("users")
       .select("*")
       .eq("phone", normalizedPhone)
       .maybeSingle();
 
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Namba hii haijasajiliwa. Tafadhali jisajili kwanza." }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (!user) {
+      const { data: newUser, error: userError } = await supabase
+        .from("users")
+        .insert({ phone: normalizedPhone })
+        .select()
+        .single();
+
+      if (userError) {
+        console.error("User create error:", userError);
+        return new Response(
+          JSON.stringify({ success: false, error: "Failed to create user" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      user = newUser;
     }
 
     // Generate access token (valid 7 days)
     const accessToken = generateToken();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Get profile and update token
+    // Find or create profile
     let { data: profile } = await supabase
       .from("profiles")
       .select("*")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (profile) {
-      const { data: updatedProfile } = await supabase
-        .from("profiles")
-        .update({ access_token: accessToken, token_expires_at: expiresAt })
-        .eq("id", profile.id)
-        .select()
-        .single();
-      if (updatedProfile) profile = updatedProfile;
-    } else {
-      const { data: newProfile } = await supabase
+    if (!profile) {
+      const { data: newProfile, error: profileError } = await supabase
         .from("profiles")
         .insert({
           user_id: user.id,
           phone: normalizedPhone,
-          full_name: "",
+          full_name: full_name || "",
           role: "member",
           access_token: accessToken,
           token_expires_at: expiresAt,
         })
         .select()
         .single();
+
+      if (profileError) {
+        console.error("Profile create error:", profileError);
+        return new Response(
+          JSON.stringify({ success: false, error: "Failed to create profile" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       profile = newProfile;
+    } else {
+      // Update token and optionally full_name
+      const updateData: Record<string, unknown> = {
+        access_token: accessToken,
+        token_expires_at: expiresAt,
+      };
+      if (full_name) {
+        updateData.full_name = full_name;
+      }
+
+      const { data: updatedProfile } = await supabase
+        .from("profiles")
+        .update(updateData)
+        .eq("id", profile.id)
+        .select()
+        .single();
+
+      if (updatedProfile) {
+        profile = updatedProfile;
+      }
     }
 
     return new Response(
@@ -114,7 +169,7 @@ Deno.serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    console.error("sign-in error:", err);
+    console.error("verify-otp error:", err);
     return new Response(
       JSON.stringify({ success: false, error: "Internal server error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

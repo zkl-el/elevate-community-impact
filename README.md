@@ -20,6 +20,7 @@ A React-based web application for community engagement and management.
 
 - Node.js >= 18.0.0
 - npm or bun
+- Supabase project (get URL & anon key from dashboard)
 
 ### Installation
 
@@ -56,6 +57,21 @@ npm run test
 npm run test:watch
 ```
 
+## Deployment to Vercel
+
+1. **Environment Variables** (required for production):
+   - `VITE_SUPABASE_URL`: Your Supabase project URL
+   - `VITE_SUPABASE_PUBLISHABLE_KEY`: Your Supabase public anon key
+   
+   Add in Vercel Dashboard: Project Settings > Environment Variables
+
+2. **Deploy**:
+   ```sh
+   vercel --prod
+   ```
+
+**Note**: Build now succeeds even without env vars (uses mock client). Real Supabase functions require env vars set.
+
 ## Project Structure
 
 ```
@@ -72,4 +88,3 @@ src/
 ## License
 
 MIT
-

@@ -1,6 +1,6 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
+import { createSupabaseClient } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Heart, TrendingUp, Users, GraduationCap, Church, Eye, UserCheck, X, Construction, LogIn, UserPlus, MessageCircle, Phone, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -12,8 +12,7 @@ import { Input } from "@/components/ui/input";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { ChuoKikuuFriendsCard, ImpactCard, CallToActionCard, CurrentProjectsCard } from "@/components/church/ExpandableCard";
 import { usePublicDashboard } from "@/hooks/useChurchData";
-import { otpService } from "@/lib/otpService";
-import { useAuth } from "@/contexts/AuthContext";
+import { normalizePhone, sendOtp, verifyOtp, getSession, clearSession } from "@/lib/auth";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -33,7 +32,6 @@ const Index = () => {
   const [authDropdown, setAuthDropdown] = useState<"signin" | "signup" | null>(null);
   const [selectedGuestCategory, setSelectedGuestCategory] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { refreshProfile, user, loading } = useAuth();
 
   // Hero slideshow state
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -53,13 +51,11 @@ const Index = () => {
 
   // Auto-redirect authenticated users to dashboard (instant)
   useEffect(() => {
-    // Check custom auth token
-    const token = localStorage.getItem('custom_access_token');
-    const expires = localStorage.getItem('custom_expires_at');
-    if (token && expires && new Date(expires) > new Date()) {
+    const session = getSession();
+    if (session) {
       navigate("/dashboard", { replace: true });
     }
-  }, []);
+  }, []); 
 
 
   // Auth form state - simplified to match Auth.tsx
@@ -112,21 +108,18 @@ const Index = () => {
     // const loginType: 'otp' = 'otp';
     // const options = isSignup ? { fullName: fullName.trim() } : {};
     
-    const result = await otpService.generateOTP(phone, fullName.trim(), isSignup ? 'signup' : 'signin');
-    
-    setAuthLoading(false);
-    
-    if (result.success) {
+    setAuthLoading(true);
+    try {
+      await sendOtp(phone, fullName.trim());
       toast.success("OTP sent to " + phone);
-    } else {
-      toast.error(result.error || "Failed to send OTP");
+      setAuthStep("otp");
+      setOtpCountdown(300);
+      startCountdown();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send OTP");
+    } finally {
+      setAuthLoading(false);
     }
-    
-    // OTP sent, wait for user to enter code
-    setAuthStep("otp");
-    setOtpCountdown(300);
-    startCountdown();
-    toast.success("OTP sent to " + phone);
   };
 
   const verifyOTP = async (e: React.FormEvent) => {
@@ -137,22 +130,11 @@ const Index = () => {
     }
     setAuthLoading(true);
     try {
-      const result = await otpService.verifyOTP(phone, otp);
-      if (result.success) {
-        if (result.access_token && result.refresh_token) {
-          await supabase.auth.setSession({
-            access_token: result.access_token,
-            refresh_token: result.refresh_token,
-          });
-        }
-        toast.success("Logged in!");
-        // Custom auth - navigate immediately since token set
-        navigate("/dashboard", { replace: true });
-      } else {
-        toast.error(result.error || "Invalid OTP");
-      }
-    } catch (err) {
-      toast.error("An error occurred during verification.");
+      const session = await verifyOtp(phone, otp, fullName);
+      toast.success("Logged in!");
+      navigate("/dashboard", { replace: true });
+    } catch (err: any) {
+      toast.error(err.message || "Invalid OTP");
     } finally {
       setAuthLoading(false);
     }
@@ -174,7 +156,6 @@ const Index = () => {
 
   const resendOTP = async () => {
     if (otpCountdown > 0) return;
-    // Trigger new OTP send
     const e = { preventDefault: () => {} } as React.FormEvent;
     await handlePhoneSubmit(e);
   };

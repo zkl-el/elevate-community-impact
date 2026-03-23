@@ -1,11 +1,14 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { LayoutDashboard, Trophy, LogOut, Shield, DollarSign, Users } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { getSession, clearSession } from "@/lib/auth";
+import { useNavigate } from "react-router-dom";
 
 const Header = () => {
   const location = useLocation();
-  const { user, roles, signOut, isSimulated } = useAuth();
+  const navigate = useNavigate();
+  const session = getSession();
+  const isSimulated = false; // or from session if needed
 
   // navigation items are intentionally empty now; only sign out button remains
   const navItems: { to: string; label: string; icon: React.FC<any> }[] = [];
@@ -47,7 +50,10 @@ const Header = () => {
           })}
           {(user || isSimulated) && (
             <button
-              onClick={signOut}
+              onClick={() => {
+                clearSession();
+                navigate('/');
+              }}
               className="ml-2 flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-600 hover:text-church-blue hover:bg-slate-50 transition-colors"
             >
               <LogOut className="w-4 h-4" />

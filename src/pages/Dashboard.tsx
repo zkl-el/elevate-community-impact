@@ -1,12 +1,12 @@
+
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import confetti from "canvas-confetti";
-import { useAuth } from "@/contexts/AuthContext";
-import { signOutCustom } from "@/lib/otpService";
+import { getSession, clearSession } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { useMemberDashboard, usePublicDashboard } from "@/hooks/useChurchData";
-import { supabase } from "@/lib/supabase";
+import { createSupabaseClient } from "@/lib/supabase";
 import { LEVELS } from "@/lib/mockData";
 import Header from "@/components/church/Header";
 import { cn } from "@/lib/utils";
@@ -501,9 +501,9 @@ const ReportsSection = ({ profile, contributions }: { profile: any; contribution
     { label: "Total Contributed", value: `TZS ${totalContributed.toLocaleString()}` },
     { label: "Contributions Made", value: contributionCount.toString() },
     { label: "Average Contribution", value: `TZS ${Math.round(avgContribution).toLocaleString()}` },
-    { label: "Annual Goal", value: `TZS ${profile?.annual_goal?.toLocaleString() || 0}` },
-    { label: "Goal Progress", value: `${profile?.annual_goal > 0 ? Math.round((profile.total_contributed / profile.annual_goal) * 100) : 0}%` },
-    { label: "Current Level", value: LEVELS[profile?.level - 1]?.name || "Seed Sower" },
+{ label: "Annual Goal", value: `TZS ${(profile?.annual_goal ?? 0)?.toLocaleString() || 0}` },
+{ label: "Goal Progress", value: `${profile?.annual_goal && profile?.annual_goal > 0 ? Math.round(( (profile.total_contributed ?? 0) / profile.annual_goal ) * 100) : 0}%` },
+    { label: "Current Level", value: LEVELS[(profile?.level ?? 0) - 1]?.name || "Seed Sower" },
   ];
 
   return (
@@ -525,19 +525,22 @@ const ReportsSection = ({ profile, contributions }: { profile: any; contribution
 };
 
 const Dashboard = () => {
-  const { user, loading: authLoading, profile: authProfile } = useAuth();
+  const session = getSession();
   const navigate = useNavigate();
   
   const [activePanel, setActivePanel] = useState<string | null>(null);
 
-  // Removed redirect useEffect - ProtectedRoute + AuthContext listener handles auth
+  if (!session) {
+    navigate("/");
+    return null;
+  }
 
-  const queryUserId = user?.id;
+  const queryUserId = session.user_id;
   const { profileQuery, contributionsQuery, groupMembersQuery } = useMemberDashboard(queryUserId);
   const { data: publicData, isLoading: publicLoading, error: publicError } = usePublicDashboard();
 
 
-  if (authLoading || profileQuery.isLoading || contributionsQuery.isLoading || publicLoading) {
+  if (profileQuery.isLoading || contributionsQuery.isLoading || publicLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -570,10 +573,10 @@ const Dashboard = () => {
     );
   }
 
-  const profile = authProfile || profileQuery.data;
+  const profile = profileQuery.data;
   const contributions = contributionsQuery.data ?? [];
   const groupMembers = groupMembersQuery.data ?? [];
-  const groupName = profile?.groups?.name || "My Group";
+        const groupName = profile?.groups?.name || session.user.full_name || "My Group";
 
   // Use real data only - no mock fallbacks
   const churchGoal = publicData?.current_project?.target_amount || 0;
@@ -600,12 +603,12 @@ const Dashboard = () => {
       case "contribute":
         return (
           <div className="rounded-2xl p-4" style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #0f2744 50%, #1a3a5c 100%)" }}>
-            <PaymentForm userId={user?.id} isSimulated={false} />
+            <PaymentForm userId={session.user_id} isSimulated={false} />
           </div>
         );
 
       case "pledge":
-        return <PledgeGoalForm userId={user?.id} />;
+        return <PledgeGoalForm userId={session.user_id} />;
       case "my-contributions":
         return (
           <div className="rounded-2xl p-4" style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #0f2744 50%, #1a3a5c 100%)" }}>
@@ -616,7 +619,6 @@ const Dashboard = () => {
         return (
           <div className="rounded-2xl p-4" style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #0f2744 50%, #1a3a5c 100%)" }}>
             <GroupMembersList members={groupMembers} groupName={groupName} />
-
           </div>
         );
       case "projects":
@@ -654,20 +656,20 @@ const Dashboard = () => {
         <motion.div variants={item} className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-full gradient-gold flex items-center justify-center text-primary-foreground font-bold">
-            {profile?.full_name?.split(" ").map((n: string) => n[0]).join("") || "U"}
+            {(profile?.full_name ?? "").split(" ").map((n: string) => n[0]).join("") || "U"}
           </div>
           <div>
             <h1 className="text-xl font-display text-foreground">
-              Hello, {profile?.full_name?.split(" ")[0] || "User"}
+              Hello, {session.user.full_name?.split(" ")[0] || (profile?.full_name ?? "").split(" ")[0] || "User"}
             </h1>
             <p className="text-sm text-muted-foreground capitalize">
-              {profile?.role || "Member"}
+              {session.user.role || (profile?.role ?? "Member")}
             </p>
           </div>
-          <button
+            <button
             onClick={async () => {
-              await signOutCustom();
-              window.location.href = '/';
+              clearSession();
+              navigate('/');
             }}
             className="px-4 py-1.5 bg-destructive/20 hover:bg-destructive text-destructive-foreground text-sm rounded-lg transition-all border border-destructive/30 hover:border-destructive"
             title="Sign Out"

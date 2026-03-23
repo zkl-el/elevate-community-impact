@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { createSupabaseClient } from "@/lib/supabase";
+import { createSupabaseClient } from "@/lib/client";
 import type { Database } from "@/lib/supabase";
 
 interface PublicDashboardData {

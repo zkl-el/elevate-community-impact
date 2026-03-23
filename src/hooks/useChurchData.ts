@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
-import type { Json } from "@/types/supabase";
+import { createSupabaseClient } from "@/lib/supabase";
+import type { Database } from "@/lib/supabase";
 
 interface PublicDashboardData {
   total_collected: number;
@@ -21,7 +21,7 @@ export const usePublicDashboard = () => {
   return useQuery({
     queryKey: ["public-dashboard"],
     queryFn: async (): Promise<PublicDashboardData> => {
-      const { data, error } = await supabase.rpc("get_public_dashboard");
+      const { data, error } = await createSupabaseClient().rpc("get_public_dashboard");
       if (error) throw error;
       return data as unknown as PublicDashboardData;
     },
@@ -33,7 +33,8 @@ export const useMemberDashboard = (userId: string | undefined) => {
   const profileQuery = useQuery({
     queryKey: ["profile", userId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const client = createSupabaseClient();
+      const { data, error } = await client
         .from("profiles")
         .select("*, groups!profiles_group_id_fkey(name)")
         .eq("id", userId!)
@@ -47,7 +48,8 @@ export const useMemberDashboard = (userId: string | undefined) => {
   const contributionsQuery = useQuery({
     queryKey: ["contributions", userId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const client = createSupabaseClient();
+      const { data, error } = await client
         .from("contributions")
         .select("*, projects(name)")
         .eq("user_id", userId!)
@@ -62,8 +64,9 @@ export const useMemberDashboard = (userId: string | undefined) => {
   const badgesQuery = useQuery({
     queryKey: ["user-badges", userId],
     queryFn: async () => {
-      const { data: allBadges } = await supabase.from("badges").select("*");
-      const { data: earnedBadges } = await supabase
+      const client = createSupabaseClient();
+      const { data: allBadges } = await client.from("badges").select("*");
+      const { data: earnedBadges } = await client
         .from("user_badges")
         .select("badge_id")
         .eq("user_id", userId!);
@@ -77,7 +80,8 @@ export const useMemberDashboard = (userId: string | undefined) => {
     queryKey: ["group-members", userId],
     queryFn: async () => {
       // RLS ensures we only see same-group members
-      const { data, error } = await supabase
+      const client = createSupabaseClient();
+      const { data, error } = await client
         .from("profiles")
         .select("id, full_name, total_contributed, annual_goal, level")
         .order("total_contributed", { ascending: false });
@@ -94,7 +98,8 @@ export const useProjects = () => {
   return useQuery({
     queryKey: ["projects"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const client = createSupabaseClient();
+      const { data, error } = await client
         .from("projects")
         .select("*")
         .eq("status", "ongoing")

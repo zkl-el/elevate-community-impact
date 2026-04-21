@@ -26,21 +26,7 @@ export function initializeSupabaseClient(): void {
       supabaseClient.auth.setSession({
         access_token: session.access_token,
         refresh_token: '',
-        expires_in: 3600,
-        expires_at: Math.floor(new Date(session.expires_at).getTime() / 1000),
-        token_type: 'bearer',
-        user: {
-          id: session.user_id,
-          aud: 'authenticated',
-          role: 'authenticated',
-          email: session.user.phone,
-          phone: session.user.phone,
-          user_metadata: {
-            full_name: session.user.full_name,
-            role: session.user.role,
-          }
-        } as any
-      });
+      } as any);
     }
   }
 }
@@ -95,10 +81,7 @@ export function createSupabaseClient(accessToken?: string) {
     client.auth.setSession({
       access_token: accessToken,
       refresh_token: '',
-      expires_in: 3600,
-      expires_at: Math.floor(Date.now() / 1000) + 3600,
-      token_type: 'bearer'
-    }).catch(err => console.warn('Failed to set session:', err));
+    } as any).catch(err => console.warn('Failed to set session:', err));
   }
 
   return client;

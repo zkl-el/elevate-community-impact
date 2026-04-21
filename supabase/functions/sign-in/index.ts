@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
           user_id: user.id,
           phone: normalizedPhone,
           full_name: "",
-          role: "user",
+          role: "member",
           access_token: accessToken,
           token_expires_at: expiresAt,
         })
@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
           id: user.id,
           phone: normalizedPhone,
           full_name: profile?.full_name || "",
-          role: profile?.role || "user",
+          role: profile?.role || "member",
         },
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

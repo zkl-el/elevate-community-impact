@@ -26,6 +26,7 @@ export interface Contribution {
 
 export interface Profile {
   id: string;
+  user_id: string;
   phone: string;
   full_name: string;
   role?: string;
@@ -61,13 +62,36 @@ export async function getCurrentUser(): Promise<User | null> {
   }
 }
 
+async function resolveProfileId(userId: string): Promise<string | null> {
+  const client = getSupabaseClient();
+
+  const { data: profileByUserId } = await client
+    .from('profiles')
+    .select('id')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (profileByUserId?.id) return profileByUserId.id;
+
+  const { data: profileById } = await client
+    .from('profiles')
+    .select('id')
+    .eq('id', userId)
+    .maybeSingle();
+
+  return profileById?.id ?? null;
+}
+
 // Safe pledges getter
 export async function getUserPledges(userId: string): Promise<Pledge[]> {
   try {
+    const profileId = await resolveProfileId(userId);
+    if (!profileId) return [];
+
     const { data, error } = await getSupabaseClient()
       .from('pledges')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', profileId)
       .order('year', { ascending: false });
 
     if (error) {
@@ -94,40 +118,15 @@ export async function createOrUpdatePledge(
     // Ensure the Supabase client has the correct auth token
     await ensureSessionValid();
 
-    // DEBUG: Log current auth state
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    console.log('[PLEDGE DEBUG] auth.uid():', authUser?.id);
-    console.log('[PLEDGE DEBUG] passed userId (session.user_id):', userId);
-    
-    if (!authUser?.id) {
-      throw new Error('No authenticated user in Supabase session');
-    }
-    
-    if (authUser.id !== userId) {
-      console.warn('[PLEDGE DEBUG] MISMATCH: auth.uid() != session.user_id');
-    }
-
-    // CRITICAL FIX: Find correct profiles.id for pledges.user_id FK
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('user_id', userId)  // auth.users.id
-      .maybeSingle();
-
-    if (profileError) throw profileError;
-    if (!profile) {
+    const profileId = await resolveProfileId(userId);
+    if (!profileId) {
       throw new Error(`No profile found for user_id: ${userId}`);
     }
 
-    console.log('[PLEDGE FIXED] Using profiles.id:', profile.id, 'for user:', userId);
-
-    const profileId = profile.id;
-
-    // Check if pledge exists (using correct profileId)
     const { data: existing } = await supabase
       .from('pledges')
       .select('id')
-      .eq('user_id', profileId)  // profiles.id !!
+      .eq('user_id', profileId)
       .eq('year', year)
       .maybeSingle();
 
@@ -145,7 +144,7 @@ export async function createOrUpdatePledge(
       const { data: newPledge, error } = await supabase
         .from('pledges')
         .insert({
-          user_id: profileId,  // profiles.id ✓ FK correct
+          user_id: profileId,
           pledge_amount: amount,
           year: year
         })
@@ -156,7 +155,6 @@ export async function createOrUpdatePledge(
       console.log('[PLEDGE] Created new pledge:', newPledge.id);
     }
 
-    // Update profile annual_goal (using profiles.id)
     const { error: profileGoalError } = await supabase
       .from('profiles')
       .update({ annual_goal: amount })
@@ -176,10 +174,13 @@ export async function createOrUpdatePledge(
 // Safe contributions getter
 export async function getUserContributions(userId: string): Promise<Contribution[]> {
   try {
+    const profileId = await resolveProfileId(userId);
+    if (!profileId) return [];
+
     const { data, error } = await getSupabaseClient()
       .from('contributions')
       .select('*, projects(name)')
-      .eq('user_id', userId)
+      .eq('user_id', profileId)
       .order('created_at', { ascending: false })
       .limit(10);
 
@@ -201,7 +202,7 @@ export async function getUserProfile(userId: string): Promise<Profile | null> {
     const { data, error } = await getSupabaseClient()
       .from('profiles')
       .select('*')
-      .eq('id', userId)
+      .or(`id.eq.${userId},user_id.eq.${userId}`)
       .maybeSingle();
 
     if (error) {
@@ -224,10 +225,15 @@ export async function createContribution(
   projectId?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const profileId = await resolveProfileId(userId);
+    if (!profileId) {
+      throw new Error('No profile found for contribution');
+    }
+
     const { error } = await getSupabaseClient()
       .from('contributions')
       .insert({
-        user_id: userId,
+        user_id: profileId,
         amount: amount,
         method: method,
         project_id: projectId || null

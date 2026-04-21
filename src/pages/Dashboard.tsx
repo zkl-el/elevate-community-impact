@@ -122,7 +122,7 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
       });
       toast.success(isSimulated ? "Contribution recorded! (Demo Mode)" : "Contribution recorded!");
       
-      if (!isSimulated && userId) {
+        if (!isSimulated && userId) {
         const session = getSession();
         const supabase = createSupabaseClient(session?.access_token);
         
@@ -571,12 +571,12 @@ const Dashboard = () => {
       case "contribute":
         return (
           <div className="rounded-2xl p-4" style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #0f2744 50%, #1a3a5c 100%)" }}>
-            <PaymentForm userId={session.user_id} isSimulated={false} />
+            <PaymentForm userId={profile?.id} isSimulated={false} />
           </div>
         );
 
       case "pledge":
-        return <PledgeGoalForm userId={session.user_id} currentPledge={currentPledge} onSuccess={() => {
+        return <PledgeGoalForm userId={profile?.id} currentPledge={currentPledge} onSuccess={() => {
           // Refresh pledges data after successful pledge
           pledgesQuery.refetch();
           profileQuery.refetch();
@@ -591,7 +591,7 @@ const Dashboard = () => {
       case "projects":
         return (
           <div className="rounded-2xl p-4" style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #0f2744 50%, #1a3a5c 100%)" }}>
-            <ProjectsView userId={session?.user_id} />
+            <ProjectsView userId={profile?.id} />
           </div>
         );
       case "reports":

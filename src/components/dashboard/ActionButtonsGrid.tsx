@@ -7,6 +7,7 @@ import {
   FolderKanban,
   BarChart3,
   HandHeart,
+  Settings,
   X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -54,18 +55,28 @@ export const actions: ActionButton[] = [
   },
 ];
 
+const adminAction: ActionButton = {
+  id: "church-settings",
+  label: "Church Settings",
+  icon: <Settings className="w-5 h-5" />,
+  color: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+};
+
 interface ActionButtonsGridProps {
   onAction: (actionId: string) => void;
   activeAction?: string | null;
   onCloseDropdown?: () => void;
+  isAdmin?: boolean;
 }
 
 const ActionButtonsGrid = ({ 
   onAction, 
   activeAction,
-  onCloseDropdown
+  onCloseDropdown,
+  isAdmin = false,
 }: ActionButtonsGridProps) => {
-  const activeButton = actions.find(a => a.id === activeAction);
+  const visibleActions = isAdmin ? [...actions, adminAction] : actions;
+  const activeButton = visibleActions.find(a => a.id === activeAction);
 
   return (
     <div className="space-y-4">
@@ -95,7 +106,7 @@ const ActionButtonsGrid = ({
       )}
 
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-        {actions.map((action, index) => {
+        {visibleActions.map((action, index) => {
           const isPrimaryAction = action.id === "contribute";
           
           return (

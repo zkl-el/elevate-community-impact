@@ -1,95 +1,89 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Serif+Display&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Church Blue Theme */
+    --background: 210 20% 98%;
+    --foreground: 220 30% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 220 30% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 220 30% 15%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Church Blue Primary */
+    --primary: 217 54% 27%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary - Warm Cream */
+    --secondary: 40 30% 94%;
+    --secondary-foreground: 220 30% 15%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 40 20% 92%;
+    --muted-foreground: 220 15% 45%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Gold Accent */
+    --accent: 42 55% 52%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 40 15% 85%;
+    --input: 40 15% 85%;
+    --ring: 217 54% 27%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+
+    /* Custom tokens - Church Blue Palette */
+    --gold: 42 55% 52%;
+    --gold-light: 42 60% 62%;
+    --gold-dark: 38 50% 42%;
+    --church-blue: 217 54% 27%;
+    --church-blue-light: 217 45% 38%;
+    --church-blue-dark: 220 60% 18%;
+    --emerald: 155 60% 40%;
+    --emerald-light: 155 50% 55%;
+    --navy: 220 40% 18%;
+    --cream: 40 30% 94%;
+    --warm-white: 40 20% 98%;
+    --bronze: 25 60% 45%;
+    --silver: 220 10% 70%;
+    --xp-purple: 270 60% 55%;
+
+    /* Gradients */
+    --gradient-gold: linear-gradient(135deg, hsl(42 55% 52%), hsl(42 60% 62%));
+    --gradient-hero: linear-gradient(160deg, hsl(217 54% 27%), hsl(217 45% 38%), hsl(220 40% 22%));
+    --gradient-church-blue: linear-gradient(135deg, hsl(217 54% 27%), hsl(217 45% 38%));
+    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.5));
+    --gradient-emerald: linear-gradient(135deg, hsl(155 60% 40%), hsl(155 50% 55%));
+    --gradient-badge: linear-gradient(135deg, hsl(42 55% 52%), hsl(25 60% 45%));
+    --gradient-xp: linear-gradient(135deg, hsl(270 60% 55%), hsl(300 60% 55%));
+    --gradient-church-hero: linear-gradient(180deg, hsl(217 54% 27%) 0%, hsl(220 40% 18%) 100%);
+
+    /* Shadows */
+    --shadow-card: 0 4px 20px -4px hsl(220 30% 15% / 0.08);
+    --shadow-card-hover: 0 12px 40px -8px hsl(220 30% 15% / 0.15);
+    --shadow-glass: 0 8px 32px -8px hsl(220 30% 15% / 0.08);
+    --shadow-glow-gold: 0 0 30px hsl(42 55% 52% / 0.25);
+    --shadow-glow-emerald: 0 0 20px hsl(155 60% 40% / 0.2);
+    --shadow-glow-blue: 0 0 25px hsl(217 54% 27% / 0.25);
+
+    --font-display: 'DM Serif Display', serif;
+    --font-body: 'Plus Jakarta Sans', sans-serif;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary: 217 54% 27%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-accent: 42 55% 52%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
@@ -98,8 +92,137 @@ All colors MUST be HSL.
   * {
     @apply border-border;
   }
-
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-sm rounded-xl border border-border/50;
+    box-shadow: var(--shadow-card);
+  }
+  .glass-card-hover {
+    @apply glass-card transition-all duration-300;
+  }
+  .glass-card-hover:hover {
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-2px);
+  }
+  .gradient-gold {
+    background: var(--gradient-gold);
+  }
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+  .gradient-church-blue {
+    background: var(--gradient-church-blue);
+  }
+  .gradient-emerald {
+    background: var(--gradient-emerald);
+  }
+  .gradient-badge {
+    background: var(--gradient-badge);
+  }
+  .gradient-xp {
+    background: var(--gradient-xp);
+  }
+  .text-gradient-gold {
+    background: var(--gradient-gold);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .text-gradient-church-blue {
+    background: var(--gradient-church-blue);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .glow-gold {
+    box-shadow: var(--shadow-glow-gold);
+  }
+  .glow-emerald {
+    box-shadow: var(--shadow-glow-emerald);
+  }
+  .glow-blue {
+    box-shadow: var(--shadow-glow-blue);
+  }
+  /* Church-style card with subtle border */
+  .church-card {
+    @apply bg-white rounded-lg transition-all duration-300;
+    /* neumorphic shadows */
+    box-shadow: 8px 8px 15px rgba(0,0,0,0.1), -8px -8px 15px rgba(255,255,255,0.7);
+  }
+  .church-card:hover {
+    box-shadow: 4px 4px 10px rgba(0,0,0,0.15), -4px -4px 10px rgba(255,255,255,0.85);
+    transform: translateY(-2px) scale(1.02);
+  }
+  /* custom neumorphic shadow utilities */
+  .shadow-neu {
+    box-shadow: 8px 8px 15px rgba(0,0,0,0.1), -8px -8px 15px rgba(255,255,255,0.7);
+  }
+  .shadow-neu-hover {
+    box-shadow: 4x 4px 10px rgba(0,0,0,0.15), -4px -4px 10px rgba(255,255,255,0.85);
+  }
+  /* Church-style button */
+  .btn-church {
+    @apply inline-flex items-center justify-center px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-200;
+  }
+  .btn-church-primary {
+    @apply btn-church bg-church-blue text-white hover:bg-church-blue-light;
+  }
+  .btn-church-gold {
+    @apply btn-church bg-gold text-white hover:bg-gold-dark;
+  }
+}
+
+@layer utilities {
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+  @keyframes count-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes gradient-shift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+  .animate-shimmer {
+    background-size: 200% 100%;
+    animation: shimmer 2s ease-in-out infinite;
+  }
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+  .animate-count-up {
+    animation: count-up 0.6s ease-out forwards;
+  }
+  .animate-gradient {
+    animation: gradient-shift 3s ease infinite;
+  }
+  .bg-size-200 {
+    background-size: 200% 100%;
+  }
+  .hover\:bg-position-100:hover {
+    background-position: 100% 0;
   }
 }

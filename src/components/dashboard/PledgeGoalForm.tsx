@@ -43,7 +43,30 @@ const PledgeGoalForm = ({
     try {
       if (userId) {
         // Check if pledge already exists for this user and year
-const supabase = createSupabaseClient();\n        const { data: existingPledge } = await supabase\n          .from("pledges")\n          .select("id")\n          .eq("user_id", userId)\n          .eq("year", parseInt(year, 10))\n          .maybeSingle();\n\n        if (existingPledge) {\n          // Update existing pledge\n          const { error } = await supabase\n            .from("pledges")\n            .update({ pledge_amount: amount })\n            .eq("id", existingPledge.id);\n\n          if (error) throw error;\n        } else {\n          // Insert new pledge\n          const { error } = await supabase\n            .from("pledges")\n            .insert({\n              user_id: userId,\n              pledge_amount: amount,\n              year: parseInt(year, 10),\n            });\n\n          if (error) throw error;\n        }
+        const supabase = createSupabaseClient();
+        const { data: existingPledge } = await supabase
+          .from("pledges")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("year", parseInt(year, 10))
+          .maybeSingle();
+
+        if (existingPledge) {
+          const { error } = await supabase
+            .from("pledges")
+            .update({ pledge_amount: amount })
+            .eq("id", existingPledge.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("pledges")
+            .insert({
+              user_id: userId,
+              pledge_amount: amount,
+              year: parseInt(year, 10),
+            });
+          if (error) throw error;
+        }
 
         setShowSuccess(true);
         toast.success("Pledge saved successfully!");

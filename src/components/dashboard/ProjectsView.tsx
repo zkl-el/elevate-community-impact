@@ -20,9 +20,10 @@ interface Project {
 
 interface ProjectsViewProps {
   userId?: string;
+  isAdmin?: boolean;
 }
 
-const ProjectsView = ({ userId }: ProjectsViewProps) => {
+const ProjectsView = ({ userId, isAdmin = false }: ProjectsViewProps) => {
   const queryClient = useQueryClient();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [projectName, setProjectName] = useState("");
@@ -114,8 +115,8 @@ const ProjectsView = ({ userId }: ProjectsViewProps) => {
 
   return (
     <div className="space-y-4">
-      {/* Create Button - Always visible for now */}
-      {!showCreateForm && (
+      {/* Create Button - Admin only */}
+      {isAdmin && !showCreateForm && (
         <motion.button
           onClick={() => setShowCreateForm(true)}
           whileHover={{ scale: 1.02 }}
@@ -126,9 +127,14 @@ const ProjectsView = ({ userId }: ProjectsViewProps) => {
           Create New Project
         </motion.button>
       )}
+      {!isAdmin && (
+        <div className="text-xs text-white/50 text-center pb-1">
+          View-only — only admins can create or edit projects.
+        </div>
+      )}
 
       {/* Create Form */}
-      {showCreateForm && (
+      {isAdmin && showCreateForm && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}

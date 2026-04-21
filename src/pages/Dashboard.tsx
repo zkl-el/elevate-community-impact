@@ -17,6 +17,9 @@ import OverviewCard from "@/components/dashboard/OverviewCard";
 import ActionButtonsGrid, { actions } from "@/components/dashboard/ActionButtonsGrid";
 import PledgeGoalForm from "@/components/dashboard/PledgeGoalForm";
 import ProjectsView from "@/components/dashboard/ProjectsView";
+import ChurchSettingsForm from "@/components/dashboard/ChurchSettingsForm";
+import { useIsAdmin } from "@/hooks/useAdmin";
+import { useChurchSettings, useChurchTotalCollected } from "@/hooks/useChurchSettings";
 
 // Icons
 import { 
@@ -501,6 +504,9 @@ const Dashboard = () => {
   const { data: publicData, isLoading: publicLoading, error: publicError } = usePublicDashboard();
 
   const { profileQuery, contributionsQuery, pledgesQuery } = useMemberDashboard(queryUserId);
+  const { data: isAdmin = false } = useIsAdmin(queryUserId);
+  const { data: churchSettings } = useChurchSettings();
+  const { data: churchTotalCollected = 0 } = useChurchTotalCollected();
 
   // Handle null publicData gracefully (no more mock fallback)
   const safePublicData = publicData || { total_collected: 0, active_members: 0, best_group: null, groups_leaderboard: [], current_project: null };
@@ -548,10 +554,11 @@ const Dashboard = () => {
   const currentYear = new Date().getFullYear();
   const currentPledge = pledges.find((p: any) => p.year === currentYear) || null;
 
-  // Use real data only - no mock fallbacks
-  const churchGoal = publicData?.current_project?.target_amount || 0;
-  const churchCollected = publicData?.current_project?.collected_amount || 0;
-  const bestGroup = publicData?.best_group;
+  // Church-wide goal: from admin-managed church_settings (annual goal),
+  // not from the current project. Total collected = sum of all contributions.
+  const churchGoal = churchSettings?.annual_goal ?? 0;
+  const churchCollected = churchTotalCollected;
+  const bestGroup = (publicData as any)?.best_group;
   const projects = publicData?.current_project ? [publicData.current_project] : [];
 
   const balance = currentPledge ? Math.max(0, currentPledge.pledge_amount - (profile?.total_contributed || 0)) : 0;
@@ -591,11 +598,17 @@ const Dashboard = () => {
       case "projects":
         return (
           <div className="rounded-2xl p-4" style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #0f2744 50%, #1a3a5c 100%)" }}>
-            <ProjectsView userId={profile?.id} />
+            <ProjectsView userId={profile?.id} isAdmin={isAdmin} />
           </div>
         );
       case "reports":
         return <ReportsSection profile={profile} contributions={contributions} />;
+      case "church-settings":
+        return isAdmin ? (
+          <div className="rounded-2xl p-4" style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #0f2744 50%, #1a3a5c 100%)" }}>
+            <ChurchSettingsForm />
+          </div>
+        ) : null;
       default:
         return null;
     }
@@ -686,6 +699,7 @@ Member • Chuo Kikuu SDA Church
             onAction={handleAction}
             activeAction={activePanel}
             onCloseDropdown={closeDropdown}
+            isAdmin={isAdmin}
           />
         </motion.div>
 

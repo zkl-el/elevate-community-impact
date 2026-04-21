@@ -1,4 +1,4 @@
-import { createSupabaseClient } from "@/lib/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface AuthUser {
   id: string;
@@ -51,8 +51,7 @@ export function clearSession(): void {
 }
 
 export async function signIn(phone: string): Promise<AuthSession> {
-  const client = createSupabaseClient();
-  const { data, error } = await client.functions.invoke("sign-in", {
+  const { data, error } = await supabase.functions.invoke("sign-in", {
     body: { phone },
   });
 
@@ -71,8 +70,7 @@ export async function signIn(phone: string): Promise<AuthSession> {
 }
 
 export async function sendOtp(phone: string, full_name?: string) {
-  const client = createSupabaseClient();
-  const { data, error } = await client.functions.invoke("send-otp", {
+  const { data, error } = await supabase.functions.invoke("send-otp", {
     body: { phone, full_name },
   });
 
@@ -82,8 +80,7 @@ export async function sendOtp(phone: string, full_name?: string) {
 }
 
 export async function verifyOtp(phone: string, otp: string, full_name?: string): Promise<AuthSession> {
-  const client = createSupabaseClient();
-  const { data, error } = await client.functions.invoke("verify-otp", {
+  const { data, error } = await supabase.functions.invoke("verify-otp", {
     body: { phone, otp, full_name },
   });
 

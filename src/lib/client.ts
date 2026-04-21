@@ -1,6 +1,6 @@
 // Moved from integrations/supabase/client.ts - now in lib/supabase
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from './types';
+import type { Database } from '@/integrations/supabase/types';
 
 export function createSupabaseClient() {
   const url = import.meta.env.VITE_SUPABASE_URL;

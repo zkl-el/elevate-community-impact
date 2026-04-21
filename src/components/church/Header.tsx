@@ -8,7 +8,8 @@ const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const session = getSession();
-  const isSimulated = false; // or from session if needed
+  const user = session?.user ?? null;
+  const isSimulated = false;
 
   // navigation items are intentionally empty now; only sign out button remains
   const navItems: { to: string; label: string; icon: React.FC<any> }[] = [];

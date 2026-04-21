@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 // Dashboard Components
 import OverviewCard from "@/components/dashboard/OverviewCard";
 import ActionButtonsGrid, { actions } from "@/components/dashboard/ActionButtonsGrid";
-// import PledgeGoalForm from "@/components/dashboard/PledgeGoalForm";
+import PledgeGoalForm from "@/components/dashboard/PledgeGoalForm";
 
 // Icons
 import { 

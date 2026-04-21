@@ -7,67 +7,63 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.1"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
-      badges: {
-        Row: {
-          created_at: string
-          description: string | null
-          icon: string | null
-          id: string
-          name: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          icon?: string | null
-          id: string
-          name: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          icon?: string | null
-          id?: string
-          name?: string
-        }
-        Relationships: []
-      }
       contributions: {
         Row: {
           amount: number
-          created_at: string
+          created_at: string | null
           id: string
           method: string | null
           project_id: string | null
           reference: string | null
-          updated_at: string
-          user_id: string | null
+          updated_at: string | null
+          user_id: string
         }
         Insert: {
           amount: number
-          created_at?: string
+          created_at?: string | null
           id?: string
           method?: string | null
           project_id?: string | null
           reference?: string | null
-          updated_at?: string
-          user_id?: string | null
+          updated_at?: string | null
+          user_id: string
         }
         Update: {
           amount?: number
-          created_at?: string
+          created_at?: string | null
           id?: string
           method?: string | null
           project_id?: string | null
           reference?: string | null
-          updated_at?: string
-          user_id?: string | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: [
           {
@@ -80,6 +76,41 @@ export type Database = {
           {
             foreignKeyName: "contributions_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      groups: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          leader_id: string | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          leader_id?: string | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          leader_id?: string | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "groups_leader_id_fkey"
+            columns: ["leader_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -115,27 +146,27 @@ export type Database = {
       }
       pledges: {
         Row: {
-          created_at: string
+          created_at: string | null
           id: string
           pledge_amount: number
-          updated_at: string
-          user_id: string | null
+          updated_at: string | null
+          user_id: string
           year: number
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           id?: string
           pledge_amount: number
-          updated_at?: string
-          user_id?: string | null
+          updated_at?: string | null
+          user_id: string
           year: number
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           id?: string
           pledge_amount?: number
-          updated_at?: string
-          user_id?: string | null
+          updated_at?: string | null
+          user_id?: string
           year?: number
         }
         Relationships: [
@@ -151,34 +182,43 @@ export type Database = {
       profiles: {
         Row: {
           access_token: string | null
+          annual_goal: number | null
           created_at: string
           full_name: string
+          group_id: string | null
           id: string
           phone: string
           role: string
           token_expires_at: string | null
+          total_contributed: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
           access_token?: string | null
+          annual_goal?: number | null
           created_at?: string
           full_name?: string
+          group_id?: string | null
           id?: string
           phone: string
           role?: string
           token_expires_at?: string | null
+          total_contributed?: number | null
           updated_at?: string
           user_id: string
         }
         Update: {
           access_token?: string | null
+          annual_goal?: number | null
           created_at?: string
           full_name?: string
+          group_id?: string | null
           id?: string
           phone?: string
           role?: string
           token_expires_at?: string | null
+          total_contributed?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -195,36 +235,36 @@ export type Database = {
       projects: {
         Row: {
           collected_amount: number
-          created_at: string
+          created_at: string | null
           description: string | null
           id: string
           name: string
-          owner_id: string | null
+          owner_id: string
           status: string | null
           target_amount: number
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
           collected_amount?: number
-          created_at?: string
+          created_at?: string | null
           description?: string | null
           id?: string
           name: string
-          owner_id?: string | null
+          owner_id: string
           status?: string | null
           target_amount: number
-          updated_at?: string
+          updated_at?: string | null
         }
         Update: {
           collected_amount?: number
-          created_at?: string
+          created_at?: string | null
           description?: string | null
           id?: string
           name?: string
-          owner_id?: string | null
+          owner_id?: string
           status?: string | null
           target_amount?: number
-          updated_at?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -236,35 +276,41 @@ export type Database = {
           },
         ]
       }
-      user_badges: {
+      user_roles: {
         Row: {
-          badge_id: string | null
-          earned_at: string
+          assigned_by: string | null
+          created_at: string | null
           id: string
-          user_id: string | null
+          role: string
+          updated_at: string | null
+          user_id: string
         }
         Insert: {
-          badge_id?: string | null
-          earned_at?: string
+          assigned_by?: string | null
+          created_at?: string | null
           id?: string
-          user_id?: string | null
+          role: string
+          updated_at?: string | null
+          user_id: string
         }
         Update: {
-          badge_id?: string | null
-          earned_at?: string
+          assigned_by?: string | null
+          created_at?: string | null
           id?: string
-          user_id?: string | null
+          role?: string
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "user_badges_badge_id_fkey"
-            columns: ["badge_id"]
+            foreignKeyName: "user_roles_assigned_by_fkey"
+            columns: ["assigned_by"]
             isOneToOne: false
-            referencedRelation: "badges"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "user_badges_user_id_fkey"
+            foreignKeyName: "user_roles_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -298,7 +344,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_public_dashboard: { Args: never; Returns: Json }
+      get_current_user_group_id: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never
@@ -427,7 +473,11 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },
 } as const
+

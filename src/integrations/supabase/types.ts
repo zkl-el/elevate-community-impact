@@ -38,6 +38,44 @@ export type Database = {
         }
         Relationships: []
       }
+      church_settings: {
+        Row: {
+          annual_goal: number
+          best_group_id: string | null
+          created_at: string
+          id: string
+          updated_at: string
+          updated_by: string | null
+          year: number
+        }
+        Insert: {
+          annual_goal?: number
+          best_group_id?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+          year: number
+        }
+        Update: {
+          annual_goal?: number
+          best_group_id?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "church_settings_best_group_id_fkey"
+            columns: ["best_group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contributions: {
         Row: {
           amount: number

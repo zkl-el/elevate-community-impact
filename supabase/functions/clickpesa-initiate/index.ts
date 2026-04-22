@@ -139,21 +139,14 @@ Deno.serve(async (req) => {
     const token = await generateToken();
 
     // Build USSD push payload
-    const payload: Record<string, unknown> = {
+    // NOTE: checksum is only required if explicitly enabled in the ClickPesa dashboard.
+    // This account has it disabled, so we omit it entirely (sending one triggers "Invalid checksum").
+    const finalPayload: Record<string, unknown> = {
       amount: String(amount),
       currency: "TZS",
       orderReference,
       phoneNumber: normalizedPhone,
     };
-    // ClickPesa USSD push: checksum is HMAC-SHA256 over amount+currency+orderReference only
-    // (alphabetically sorted, values concatenated; phoneNumber is excluded)
-    const checksumFields = {
-      amount: payload.amount,
-      currency: payload.currency,
-      orderReference: payload.orderReference,
-    };
-    const checksum = await buildChecksum(checksumFields);
-    const finalPayload = { ...payload, checksum };
 
     console.log("[clickpesa] initiating", { orderReference, amount, phone: normalizedPhone });
 

@@ -79,31 +79,43 @@ export type Database = {
       contributions: {
         Row: {
           amount: number
+          clickpesa_order_reference: string | null
           created_at: string
+          currency: string | null
           id: string
           method: string | null
+          payment_provider: string | null
           project_id: string | null
           reference: string | null
+          status: string
           updated_at: string
           user_id: string | null
         }
         Insert: {
           amount: number
+          clickpesa_order_reference?: string | null
           created_at?: string
+          currency?: string | null
           id?: string
           method?: string | null
+          payment_provider?: string | null
           project_id?: string | null
           reference?: string | null
+          status?: string
           updated_at?: string
           user_id?: string | null
         }
         Update: {
           amount?: number
+          clickpesa_order_reference?: string | null
           created_at?: string
+          currency?: string | null
           id?: string
           method?: string | null
+          payment_provider?: string | null
           project_id?: string | null
           reference?: string | null
+          status?: string
           updated_at?: string
           user_id?: string | null
         }

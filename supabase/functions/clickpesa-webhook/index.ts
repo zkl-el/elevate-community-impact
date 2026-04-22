@@ -7,33 +7,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const CHECKSUM_KEY = Deno.env.get("CLICKPESA_CHECKSUM_KEY")!;
-
-async function hmacSha256Hex(key: string, message: string): Promise<string> {
-  const enc = new TextEncoder();
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(key),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const sig = await crypto.subtle.sign("HMAC", cryptoKey, enc.encode(message));
-  return Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-async function verifyChecksum(payload: Record<string, unknown>, provided: string): Promise<boolean> {
-  if (!provided) return false;
-  const keys = Object.keys(payload)
-    .filter((k) => k !== "checksum" && k !== "checksumMethod")
-    .sort();
-  const message = keys.map((k) => String(payload[k] ?? "")).join("");
-  const expected = await hmacSha256Hex(CHECKSUM_KEY, message);
-  return expected.toLowerCase() === String(provided).toLowerCase();
-}
-
 function mapStatus(s: string): string {
   const upper = (s || "").toUpperCase();
   if (["SUCCESS", "SUCCESSFUL", "COMPLETED", "SETTLED"].includes(upper)) return "success";
@@ -58,15 +31,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const provided = String(payload.checksum ?? "");
-    const valid = await verifyChecksum(payload, provided);
-    if (!valid) {
-      console.warn("[clickpesa-webhook] invalid checksum");
-      return new Response(JSON.stringify({ error: "Invalid checksum" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Checksum validation is disabled (not enabled on this ClickPesa account).
 
     const orderReference =
       (payload.orderReference as string) ||

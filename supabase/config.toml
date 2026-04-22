@@ -8,3 +8,12 @@ verify_jwt = false
 
 [functions.sign-in]
 verify_jwt = false
+
+[functions.clickpesa-initiate]
+verify_jwt = false
+
+[functions.clickpesa-status]
+verify_jwt = false
+
+[functions.clickpesa-webhook]
+verify_jwt = false

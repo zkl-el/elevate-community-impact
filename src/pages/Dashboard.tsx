@@ -53,29 +53,21 @@ const LevelIcon = ({ name }: { name: string }) => {
 
 
 
-// Full Payment Form (from GuestDashboard)
+// ClickPesa Payment Form (mobile money via USSD push)
 const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: boolean }) => {
-  const [paymentType, setPaymentType] = useState<"mobile_money" | "bank_transfer">("mobile_money");
   const [phone, setPhone] = useState("");
   const [selectedMobileMethod, setSelectedMobileMethod] = useState<string | null>(null);
-  const [selectedBank, setSelectedBank] = useState<string | null>(null);
-  const [accountNumber, setAccountNumber] = useState("");
   const [reference, setReference] = useState("");
   const [amount, setAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentState, setPaymentState] = useState<"form" | "success" | "error">("form");
+  const [paymentState, setPaymentState] = useState<"form" | "processing" | "success" | "error">("form");
+  const [statusMessage, setStatusMessage] = useState<string>("");
 
   const mobileMoneyMethods = [
     { id: "mpesa", name: "M-Pesa" },
     { id: "tigopesa", name: "Tigo Pesa" },
     { id: "airtel", name: "Airtel Money" },
     { id: "halopesa", name: "HaloPesa" },
-  ];
-
-  const bankMethods = [
-    { id: "crdb", name: "CRDB Bank", accountNumber: "02XXXXXXXXXXXX" },
-    { id: "nmb", name: "NMB Bank", accountNumber: "XXXXXXXXXX" },
-    { id: "nbc", name: "NBC Bank", accountNumber: "XXXXXXXXXXXX" },
   ];
 
   const formatPhoneNumber = (value: string): string => {
@@ -88,6 +80,30 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
 
   const formatCurrency = (amt: number): string => amt.toLocaleString("en-TZ");
 
+  const pollStatus = async (orderReference: string, maxAttempts = 24): Promise<string> => {
+    const session = getSession();
+    const supabase = createSupabaseClient(session?.access_token);
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise((r) => setTimeout(r, 5000)); // poll every 5s, up to ~2min
+      try {
+        const { data, error } = await supabase.functions.invoke("clickpesa-status", {
+          body: { orderReference },
+        });
+        if (error) {
+          console.warn("[poll] error", error);
+          continue;
+        }
+        const s = (data as any)?.status;
+        setStatusMessage(`Payment status: ${s ?? "processing"}...`);
+        if (s === "success") return "success";
+        if (s === "failed" || s === "reversed") return s;
+      } catch (e) {
+        console.warn("[poll] exception", e);
+      }
+    }
+    return "timeout";
+  };
+
   const handleSubmit = async () => {
     const numericAmount = parseInt(amount, 10);
     if (!numericAmount || numericAmount <= 0) {
@@ -95,64 +111,94 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
       return;
     }
 
-    if (paymentType === "mobile_money") {
-      const cleanPhone = phone.replace(/\s/g, "");
-      if (cleanPhone.length !== 12) {
-        toast.error("Enter a valid phone number (2557XXXXXXXX)");
-        return;
-      }
-      if (!selectedMobileMethod) {
-        toast.error("Please select a mobile money provider");
-        return;
-      }
-    } else {
-      if (!selectedBank || !accountNumber.trim()) {
-        toast.error("Please select a bank and enter account number");
-        return;
-      }
+    const cleanPhone = phone.replace(/\s/g, "");
+    if (cleanPhone.length !== 12) {
+      toast.error("Enter a valid phone number (2557XXXXXXXX)");
+      return;
+    }
+    if (!selectedMobileMethod) {
+      toast.error("Please select a mobile money provider");
+      return;
     }
 
     setIsProcessing(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    setPaymentState("processing");
+    setStatusMessage("Sending payment request to your phone...");
 
-    if (isSimulated || userId) {
+    // Demo mode (guest dashboard)
+    if (isSimulated) {
+      await new Promise((r) => setTimeout(r, 1500));
       setPaymentState("success");
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ["#d4a017", "#2d8a56", "#7c3aed"],
-      });
-      toast.success(isSimulated ? "Contribution recorded! (Demo Mode)" : "Contribution recorded!");
-      
-        if (!isSimulated && userId) {
-        const session = getSession();
-        const supabase = createSupabaseClient(session?.access_token);
-        
-        // Give setSession time to process
-        await new Promise(resolve => setTimeout(resolve, 50));
-        
-        await supabase.from("contributions").insert({
-          user_id: userId,
-          amount: numericAmount,
-          method: paymentType === "mobile_money" ? "mobile_money" : "bank_transfer",
-        });
-      }
-    } else {
-      setPaymentState("error");
-      toast.error("Failed to process contribution");
+      confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 }, colors: ["#d4a017", "#2d8a56", "#7c3aed"] });
+      toast.success("Contribution recorded! (Demo Mode)");
+      setIsProcessing(false);
+      return;
     }
 
-    setIsProcessing(false);
+    try {
+      const session = getSession();
+      const supabase = createSupabaseClient(session?.access_token);
+
+      const { data, error } = await supabase.functions.invoke("clickpesa-initiate", {
+        body: {
+          amount: numericAmount,
+          phone: cleanPhone,
+          userId: userId ?? null,
+          reference: reference || null,
+        },
+      });
+
+      if (error || !(data as any)?.success) {
+        const msg = (data as any)?.error || error?.message || "Failed to start payment";
+        console.error("[clickpesa] initiate failed", error, data);
+        setPaymentState("error");
+        setStatusMessage(msg);
+        toast.error(msg);
+        setIsProcessing(false);
+        return;
+      }
+
+      const orderReference: string = (data as any).orderReference;
+      setStatusMessage("Check your phone and enter your PIN to approve...");
+      toast.success("Payment request sent. Check your phone.");
+
+      const finalStatus = await pollStatus(orderReference);
+      if (finalStatus === "success") {
+        setPaymentState("success");
+        confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 }, colors: ["#d4a017", "#2d8a56", "#7c3aed"] });
+        toast.success("Contribution received!");
+      } else if (finalStatus === "timeout") {
+        setPaymentState("error");
+        setStatusMessage("Timed out waiting for confirmation. Check 'My Contributions' shortly.");
+        toast.error("Timed out. We will update once ClickPesa confirms.");
+      } else {
+        setPaymentState("error");
+        setStatusMessage(`Payment ${finalStatus}. Please try again.`);
+        toast.error(`Payment ${finalStatus}`);
+      }
+    } catch (err: any) {
+      console.error("[clickpesa] exception", err);
+      setPaymentState("error");
+      setStatusMessage(err?.message || "Unexpected error");
+      toast.error(err?.message || "Unexpected error");
+    } finally {
+      setIsProcessing(false);
+    }
   };
+
+  if (paymentState === "processing") {
+    return (
+      <div className="text-center py-10 space-y-4">
+        <Loader2 className="w-12 h-12 mx-auto text-gold animate-spin" />
+        <h3 className="text-xl font-display text-white">Processing Payment</h3>
+        <p className="text-sm text-white/70 max-w-xs mx-auto">{statusMessage}</p>
+      </div>
+    );
+  }
 
   if (paymentState === "success") {
     return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="text-center py-8"
-      >
+      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-8">
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
@@ -160,24 +206,18 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
         >
           <CheckCircle2 className="w-10 h-10 text-white" />
         </motion.div>
-        <h2 className="text-2xl font-display text-white mb-2">
-          {paymentType === "mobile_money" ? "Contribution Initiated!" : "Bank Transfer Details!"}
-        </h2>
-        <p className="text-sm text-white/70 mb-6">
-          {paymentType === "mobile_money" 
-            ? "A payment request has been sent to your phone." 
-            : "Please use the bank details below to make your transfer."}
-        </p>
+        <h2 className="text-2xl font-display text-white mb-2">Contribution Received!</h2>
+        <p className="text-sm text-white/70 mb-6">Thank you for your generous contribution.</p>
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 mb-6 text-left border border-white/10">
-            <div className="flex justify-between py-2 border-b border-white/10">
-              <span className="text-white/60">Amount</span>
-              <span className="font-semibold text-gold-light text-lg">
-                TZS {formatCurrency(parseInt(amount, 10) || 0)}
-              </span>
-            </div>
+          <div className="flex justify-between py-2 border-b border-white/10">
+            <span className="text-white/60">Amount</span>
+            <span className="font-semibold text-gold-light text-lg">
+              TZS {formatCurrency(parseInt(amount, 10) || 0)}
+            </span>
           </div>
+        </div>
         <motion.button
-          onClick={() => { setPaymentState("form"); setAmount(""); setPhone(""); setReference(""); }}
+          onClick={() => { setPaymentState("form"); setAmount(""); setPhone(""); setReference(""); setStatusMessage(""); }}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           className="w-full py-3 px-6 rounded-xl gradient-gold text-primary-foreground font-semibold transition-all shadow-lg"
@@ -188,127 +228,76 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
     );
   }
 
-  return (
-    <div className="space-y-4">
-      {/* Payment Type Tabs */}
-      <div className="flex rounded-xl bg-white/10 p-1 border border-white/10">
+  if (paymentState === "error") {
+    return (
+      <div className="text-center py-8 space-y-4">
+        <div className="w-16 h-16 mx-auto rounded-full bg-red-500/20 flex items-center justify-center">
+          <X className="w-8 h-8 text-red-400" />
+        </div>
+        <h3 className="text-xl font-display text-white">Payment Failed</h3>
+        <p className="text-sm text-white/70 max-w-xs mx-auto">{statusMessage}</p>
         <button
-          type="button"
-          onClick={() => setPaymentType("mobile_money")}
-          className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
-            paymentType === "mobile_money" 
-              ? "bg-white text-primary shadow-md" 
-              : "text-white/70 hover:text-white hover:bg-white/5"
-          }`}
+          onClick={() => { setPaymentState("form"); setStatusMessage(""); }}
+          className="w-full py-3 px-6 rounded-xl gradient-gold text-primary-foreground font-semibold"
         >
-          Mobile Money
-        </button>
-        <button
-          type="button"
-          onClick={() => setPaymentType("bank_transfer")}
-          className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
-            paymentType === "bank_transfer" 
-              ? "bg-white text-primary shadow-md" 
-              : "text-white/70 hover:text-white hover:bg-white/5"
-          }`}
-        >
-          Bank Transfer
+          Try Again
         </button>
       </div>
+    );
+  }
 
-      {/* Mobile Money Fields */}
-      {paymentType === "mobile_money" && (
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <label className="text-sm font-semibold text-white">Phone Number</label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
-              placeholder="2557XXXXXXXX"
-              className="w-full h-11 px-4 rounded-xl border-2 bg-white/95 text-base font-medium focus:outline-none focus:ring-2 focus:ring-white/20 border-border/50 focus:border-gold"
-              maxLength={16}
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-sm font-semibold text-white">Reference Note <span className="text-white/40 font-normal">(Optional)</span></label>
-            <input
-              type="text"
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              placeholder="e.g., Tithe, Offering"
-              className="w-full h-11 px-4 rounded-xl border-2 bg-white/95 text-base font-medium focus:outline-none focus:ring-2 focus:ring-white/20 border-border/50 focus:border-gold"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-white">Mobile Money Provider</label>
-            <div className="grid grid-cols-2 gap-2">
-              {mobileMoneyMethods.map((method) => (
-                <button
-                  key={method.id}
-                  type="button"
-                  onClick={() => setSelectedMobileMethod(method.id)}
-                  className={`relative p-2 rounded-lg border-2 text-center transition-all ${
-                    selectedMobileMethod === method.id
-                      ? "border-gold bg-gold/10"
-                      : "border-white/20 bg-white/5 hover:border-white/40"
-                  }`}
-                >
-                  <span className="font-medium text-white text-xs">{method.name}</span>
-                  {selectedMobileMethod === method.id && (
-                    <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-gold flex items-center justify-center">
-                      <CheckCircle2 className="w-2 h-2 text-primary" />
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
+  return (
+    <div className="space-y-4">
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <label className="text-sm font-semibold text-white">Phone Number</label>
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
+            placeholder="2557XXXXXXXX"
+            className="w-full h-11 px-4 rounded-xl border-2 bg-white/95 text-base font-medium focus:outline-none focus:ring-2 focus:ring-white/20 border-border/50 focus:border-gold"
+            maxLength={16}
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-sm font-semibold text-white">
+            Reference Note <span className="text-white/40 font-normal">(Optional)</span>
+          </label>
+          <input
+            type="text"
+            value={reference}
+            onChange={(e) => setReference(e.target.value)}
+            placeholder="e.g., Tithe, Offering"
+            className="w-full h-11 px-4 rounded-xl border-2 bg-white/95 text-base font-medium focus:outline-none focus:ring-2 focus:ring-white/20 border-border/50 focus:border-gold"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-white">Mobile Money Provider</label>
+          <div className="grid grid-cols-2 gap-2">
+            {mobileMoneyMethods.map((method) => (
+              <button
+                key={method.id}
+                type="button"
+                onClick={() => setSelectedMobileMethod(method.id)}
+                className={`relative p-2 rounded-lg border-2 text-center transition-all ${
+                  selectedMobileMethod === method.id
+                    ? "border-gold bg-gold/10"
+                    : "border-white/20 bg-white/5 hover:border-white/40"
+                }`}
+              >
+                <span className="font-medium text-white text-xs">{method.name}</span>
+                {selectedMobileMethod === method.id && (
+                  <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-gold flex items-center justify-center">
+                    <CheckCircle2 className="w-2 h-2 text-primary" />
+                  </div>
+                )}
+              </button>
+            ))}
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Bank Transfer Fields */}
-      {paymentType === "bank_transfer" && (
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-white">Select Bank</label>
-            <div className="grid grid-cols-1 gap-2">
-              {bankMethods.map((bank) => (
-                <button
-                  key={bank.id}
-                  type="button"
-                  onClick={() => setSelectedBank(bank.id)}
-                  className={`relative p-3 rounded-lg border-2 text-left transition-all ${
-                    selectedBank === bank.id
-                      ? "border-gold bg-gold/10"
-                      : "border-white/20 bg-white/5 hover:border-white/40"
-                  }`}
-                >
-                  <span className="font-semibold text-white text-sm block">{bank.name}</span>
-                  <span className="text-xs text-white/50">Acc: {bank.accountNumber}</span>
-                  {selectedBank === bank.id && (
-                    <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-gold flex items-center justify-center">
-                      <CheckCircle2 className="w-2 h-2 text-primary" />
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-sm font-semibold text-white">Account Number</label>
-            <input
-              type="text"
-              value={accountNumber}
-              onChange={(e) => setAccountNumber(e.target.value)}
-              placeholder="Enter your account number"
-              className="w-full h-11 px-4 rounded-xl border-2 bg-white/95 text-base font-medium focus:outline-none focus:ring-2 focus:ring-white/20 border-border/50 focus:border-gold"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Amount Input */}
       <div className="space-y-1">
         <label className="text-sm font-semibold text-white">Amount (TZS)</label>
         <div className="relative">
@@ -323,7 +312,6 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
         </div>
       </div>
 
-      {/* Submit Button */}
       <motion.button
         type="button"
         onClick={handleSubmit}
@@ -345,11 +333,10 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
           "Contribute Now"
         )}
       </motion.button>
-
-
     </div>
   );
 };
+
 
 const ContributionsList = ({ contributions }: { contributions: any[] }) => {
   if (contributions.length === 0) {

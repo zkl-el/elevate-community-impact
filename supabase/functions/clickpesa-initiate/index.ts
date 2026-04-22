@@ -81,8 +81,8 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { amount, phone, userId, projectId, reference: noteRef } = body ?? {};
 
-    if (!amount || Number(amount) < 500 || Number(amount) > 3_000_000) {
-      return new Response(JSON.stringify({ success: false, error: "Kiasi lazima kiwe kati ya TZS 500 na 3,000,000" }), {
+    if (!amount || Number(amount) < 200 || Number(amount) > 3_000_000) {
+      return new Response(JSON.stringify({ success: false, error: "Kiasi lazima kiwe kati ya TZS 200 na 3,000,000" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

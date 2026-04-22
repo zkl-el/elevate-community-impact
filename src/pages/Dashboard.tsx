@@ -106,8 +106,8 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
 
   const handleSubmit = async () => {
     const numericAmount = parseInt(amount, 10);
-    if (!numericAmount || numericAmount <= 0) {
-      toast.error("Please enter a valid amount");
+    if (!numericAmount || numericAmount < 500 || numericAmount > 3_000_000) {
+      toast.error("Amount must be between TZS 500 and 3,000,000");
       return;
     }
 
@@ -306,10 +306,11 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
             type="text"
             value={amount ? formatCurrency(parseInt(amount) || 0) : ""}
             onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ""))}
-            placeholder="0"
+            placeholder="500"
             className="w-full h-11 pl-16 pr-4 rounded-xl border-2 bg-white/95 text-base font-medium focus:outline-none focus:ring-2 focus:ring-white/20 border-border/50 focus:border-gold"
           />
         </div>
+        <p className="text-xs text-white/60">Minimum amount is TZS 500.</p>
       </div>
 
       <motion.button

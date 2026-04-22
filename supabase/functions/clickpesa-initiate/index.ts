@@ -145,7 +145,14 @@ Deno.serve(async (req) => {
       orderReference,
       phoneNumber: normalizedPhone,
     };
-    const checksum = await buildChecksum(payload);
+    // ClickPesa USSD push: checksum is HMAC-SHA256 over amount+currency+orderReference only
+    // (alphabetically sorted, values concatenated; phoneNumber is excluded)
+    const checksumFields = {
+      amount: payload.amount,
+      currency: payload.currency,
+      orderReference: payload.orderReference,
+    };
+    const checksum = await buildChecksum(checksumFields);
     const finalPayload = { ...payload, checksum };
 
     console.log("[clickpesa] initiating", { orderReference, amount, phone: normalizedPhone });

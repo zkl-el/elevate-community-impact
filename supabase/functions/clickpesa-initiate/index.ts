@@ -171,13 +171,26 @@ Deno.serve(async (req) => {
         .from("contributions")
         .update({ status: "failed" })
         .eq("id", contribution.id);
+
+      const rawMsg = String(cpData?.message || cpData?.error || "Payment request failed");
+      const lower = rawMsg.toLowerCase();
+      let friendly = rawMsg;
+      let code = "provider_error";
+      if (lower.includes("insufficient")) {
+        friendly = "Salio la simu yako halitoshi. Tafadhali ongeza pesa kisha jaribu tena.";
+        code = "insufficient_funds";
+      } else if (lower.includes("invalid") && lower.includes("phone")) {
+        friendly = "Namba ya simu si sahihi. Hakiki namba kisha jaribu tena.";
+        code = "invalid_phone";
+      } else if (lower.includes("timeout") || lower.includes("timed out")) {
+        friendly = "Mtandao umechelewa kujibu. Tafadhali jaribu tena.";
+        code = "timeout";
+      }
+
+      // Return HTTP 200 so the client SDK can read the body and show a friendly message
       return new Response(
-        JSON.stringify({
-          success: false,
-          error: cpData?.message || cpData?.error || "ClickPesa request failed",
-          details: cpData,
-        }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({ success: false, code, error: friendly, details: cpData }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 

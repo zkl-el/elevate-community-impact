@@ -107,8 +107,10 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Unique reference for this transaction
-    const orderReference = `CKSDA${Date.now()}${Math.floor(Math.random() * 10000)}`;
+    // Unique reference (max 20 chars per ClickPesa). base36 keeps it short.
+    const orderReference = `CK${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+      .toUpperCase()
+      .slice(0, 20);
 
     // Insert pending contribution
     const { data: contribution, error: insertError } = await supabase

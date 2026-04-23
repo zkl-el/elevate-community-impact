@@ -42,6 +42,7 @@ export type Database = {
         Row: {
           annual_goal: number
           best_group_id: string | null
+          best_group_name: string | null
           created_at: string
           id: string
           updated_at: string
@@ -51,6 +52,7 @@ export type Database = {
         Insert: {
           annual_goal?: number
           best_group_id?: string | null
+          best_group_name?: string | null
           created_at?: string
           id?: string
           updated_at?: string
@@ -60,6 +62,7 @@ export type Database = {
         Update: {
           annual_goal?: number
           best_group_id?: string | null
+          best_group_name?: string | null
           created_at?: string
           id?: string
           updated_at?: string

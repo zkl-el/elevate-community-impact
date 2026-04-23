@@ -351,8 +351,8 @@ const ContributionsList = ({ contributions }: { contributions: any[] }) => {
   }
 
   return (
-    <div className="space-y-3">
-      {contributions.slice(0, 10).map((contribution: any) => (
+    <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+      {contributions.map((contribution: any) => (
         <motion.div
           key={contribution.id}
           className="flex items-center justify-between p-3 rounded-xl bg-white/5"

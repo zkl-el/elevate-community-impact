@@ -8,6 +8,7 @@ export interface ChurchSettings {
   annual_goal: number;
   best_group_id: string | null;
   best_group_name: string | null;
+  best_group_percentage: number | null;
 }
 
 const currentYear = () => new Date().getFullYear();
@@ -19,7 +20,7 @@ export const useChurchSettings = () => {
       const client = getSupabaseClient();
       const { data, error } = await client
         .from("church_settings")
-        .select("id, year, annual_goal, best_group_id, best_group_name")
+        .select("id, year, annual_goal, best_group_id, best_group_name, best_group_percentage")
         .eq("year", currentYear())
         .maybeSingle();
       if (error) {
@@ -69,6 +70,7 @@ export const useUpdateChurchSettings = () => {
     mutationFn: async (input: {
       annual_goal: number;
       best_group_name: string | null;
+      best_group_percentage: number | null;
     }) => {
       const client = getSupabaseClient();
       const year = currentYear();
@@ -85,6 +87,7 @@ export const useUpdateChurchSettings = () => {
           .update({
             annual_goal: input.annual_goal,
             best_group_name: input.best_group_name,
+            best_group_percentage: input.best_group_percentage,
           } as any)
           .eq("id", existing.id);
         if (error) throw error;
@@ -93,6 +96,7 @@ export const useUpdateChurchSettings = () => {
           year,
           annual_goal: input.annual_goal,
           best_group_name: input.best_group_name,
+          best_group_percentage: input.best_group_percentage,
         } as any);
         if (error) throw error;
       }
@@ -103,7 +107,7 @@ export const useUpdateChurchSettings = () => {
       qc.invalidateQueries({ queryKey: ["public-dashboard"] });
     },
     onError: (e: any) => {
-      toast.error(e.message || "Failed to update settings. Are you an admin?");
+      toast.error(e.message || "Failed to update settings.");
     },
   });
 };

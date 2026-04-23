@@ -43,6 +43,7 @@ export type Database = {
           annual_goal: number
           best_group_id: string | null
           best_group_name: string | null
+          best_group_percentage: number | null
           created_at: string
           id: string
           updated_at: string
@@ -53,6 +54,7 @@ export type Database = {
           annual_goal?: number
           best_group_id?: string | null
           best_group_name?: string | null
+          best_group_percentage?: number | null
           created_at?: string
           id?: string
           updated_at?: string
@@ -63,6 +65,7 @@ export type Database = {
           annual_goal?: number
           best_group_id?: string | null
           best_group_name?: string | null
+          best_group_percentage?: number | null
           created_at?: string
           id?: string
           updated_at?: string

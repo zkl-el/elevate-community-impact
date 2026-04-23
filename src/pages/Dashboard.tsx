@@ -444,8 +444,9 @@ const ProjectsList = ({ projects }: { projects: any[] }) => {
 };
 
 const ReportsSection = ({ profile, contributions }: { profile: any; contributions: any[] }) => {
-  const totalContributed = contributions.reduce((sum: number, c: any) => sum + (c.amount || 0), 0);
-  const contributionCount = contributions.length;
+  const completed = contributions.filter((c: any) => c.status === "completed");
+  const totalContributed = completed.reduce((sum: number, c: any) => sum + (c.amount || 0), 0);
+  const contributionCount = completed.length;
   const avgContribution = contributionCount > 0 ? totalContributed / contributionCount : 0;
 
   const stats = [

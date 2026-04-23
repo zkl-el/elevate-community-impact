@@ -51,7 +51,10 @@ export const useChurchTotalCollected = () => {
     queryKey: ["church-total-collected"],
     queryFn: async (): Promise<number> => {
       const client = getSupabaseClient();
-      const { data, error } = await client.from("contributions").select("amount");
+      const { data, error } = await client
+        .from("contributions")
+        .select("amount")
+        .eq("status", "completed");
       if (error) return 0;
       return (data ?? []).reduce((sum, c: any) => sum + Number(c.amount || 0), 0);
     },

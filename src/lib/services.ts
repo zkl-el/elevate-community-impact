@@ -233,7 +233,8 @@ export const getUserTotalContributed = async (userId: string): Promise<number> =
   const { data, error } = await client
     .from("contributions")
     .select("amount")
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .eq("status", "completed");
 
   if (error) {
     console.error("Error calculating total:", error);

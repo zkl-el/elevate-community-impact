@@ -167,19 +167,34 @@ Deno.serve(async (req) => {
     console.log("[clickpesa] response", cpRes.status, cpData);
 
     if (!cpRes.ok) {
+      const rawMsg = String(cpData?.message || cpData?.error || "Payment request failed");
+      const lower = rawMsg.toLowerCase();
+
+      // Insufficient funds: ClickPesa blocks USSD push upstream, but from the user's
+      // perspective we treat it as "request sent — phone will reject if balance is low".
+      // Keep contribution pending so webhook can finalize if the user tops up in time.
+      if (lower.includes("insufficient")) {
+        console.log("[clickpesa] insufficient funds — keeping pending, telling user to check phone");
+        return new Response(
+          JSON.stringify({
+            success: true,
+            orderReference,
+            contributionId: contribution.id,
+            message: "Ombi la malipo limetumwa. Tafadhali angalia simu yako na ingiza PIN. Kama salio halitoshi, simu itakuonyesha ujumbe.",
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      // Other errors are real failures — mark contribution as failed.
       await supabase
         .from("contributions")
         .update({ status: "failed" })
         .eq("id", contribution.id);
 
-      const rawMsg = String(cpData?.message || cpData?.error || "Payment request failed");
-      const lower = rawMsg.toLowerCase();
       let friendly = rawMsg;
       let code = "provider_error";
-      if (lower.includes("insufficient")) {
-        friendly = "Salio la simu yako halitoshi. Tafadhali ongeza pesa kisha jaribu tena.";
-        code = "insufficient_funds";
-      } else if (lower.includes("invalid") && lower.includes("phone")) {
+      if (lower.includes("invalid") && lower.includes("phone")) {
         friendly = "Namba ya simu si sahihi. Hakiki namba kisha jaribu tena.";
         code = "invalid_phone";
       } else if (lower.includes("timeout") || lower.includes("timed out")) {
@@ -187,7 +202,6 @@ Deno.serve(async (req) => {
         code = "timeout";
       }
 
-      // Return HTTP 200 so the client SDK can read the body and show a friendly message
       return new Response(
         JSON.stringify({ success: false, code, error: friendly, details: cpData }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },

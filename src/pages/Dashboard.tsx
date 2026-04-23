@@ -676,7 +676,7 @@ Member • Chuo Kikuu SDA Church
           churchCollected={churchCollected}
           bestGroup={(bestGroup as any) ? {
             name: (bestGroup as any).name || "Unknown Group",
-            total: (bestGroup as any).total || (bestGroup as any).totalContributed || 0,
+            percentage: (bestGroup as any).percentage ?? 0,
           } : null}
           myRemainingGoal={balance}
         />

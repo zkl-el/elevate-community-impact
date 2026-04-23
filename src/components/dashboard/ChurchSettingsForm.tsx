@@ -12,11 +12,17 @@ const ChurchSettingsForm = () => {
 
   const [annualGoal, setAnnualGoal] = useState("");
   const [bestGroupName, setBestGroupName] = useState<string>("");
+  const [bestGroupPct, setBestGroupPct] = useState<string>("");
 
   useEffect(() => {
     if (settingsQuery.data) {
       setAnnualGoal(String(settingsQuery.data.annual_goal ?? ""));
       setBestGroupName(settingsQuery.data.best_group_name ?? "");
+      setBestGroupPct(
+        settingsQuery.data.best_group_percentage != null
+          ? String(settingsQuery.data.best_group_percentage)
+          : ""
+      );
     }
   }, [settingsQuery.data]);
 
@@ -25,9 +31,11 @@ const ChurchSettingsForm = () => {
   const handleSubmit = () => {
     const num = parseInt(annualGoal || "0", 10);
     if (num < 0) return;
+    const pctNum = bestGroupPct === "" ? null : Math.max(0, Math.min(100, parseFloat(bestGroupPct)));
     updateMutation.mutate({
       annual_goal: num,
       best_group_name: bestGroupName.trim() || null,
+      best_group_percentage: pctNum,
     });
   };
 
@@ -71,6 +79,30 @@ const ChurchSettingsForm = () => {
         />
         <p className="text-xs text-white/50">
           Andika jina la kikundi kinachoongoza kwa sasa.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-white">
+          Best Group Performance (%)
+        </label>
+        <div className="relative">
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step="0.1"
+            value={bestGroupPct}
+            onChange={(e) => setBestGroupPct(e.target.value)}
+            placeholder="0"
+            className="w-full h-10 pl-3 pr-8 rounded-lg border-2 bg-white/95 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-white/20 border-border/50 focus:border-amber-400"
+          />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+            %
+          </span>
+        </div>
+        <p className="text-xs text-white/50">
+          Asilimia ya ufanisi wa kikundi (0 - 100).
         </p>
       </div>
 

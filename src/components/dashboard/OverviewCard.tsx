@@ -6,7 +6,7 @@ import SlideCard from "@/components/dashboard/SlideCard";
 interface OverviewCardProps {
   churchGoal: number;
   churchCollected: number;
-  bestGroup?: { name: string; total: number } | null;
+  bestGroup?: { name: string; percentage?: number; total?: number } | null;
   myRemainingGoal: number;
   currency?: string;
   interval?: number;
@@ -75,8 +75,8 @@ const OverviewCard = ({
               {bestGroup?.name ?? "N/A"}
             </h2>
           </div>
-          <p className="text-white/80">
-            {bestGroup ? `${currency} ${bestGroup.total.toLocaleString()}` : ""}
+          <p className="text-amber-400 font-bold text-2xl sm:text-3xl">
+            {bestGroup && bestGroup.percentage != null ? `${bestGroup.percentage}%` : ""}
           </p>
         </>
       ),

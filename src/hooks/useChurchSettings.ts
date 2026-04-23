@@ -7,6 +7,7 @@ export interface ChurchSettings {
   year: number;
   annual_goal: number;
   best_group_id: string | null;
+  best_group_name: string | null;
 }
 
 const currentYear = () => new Date().getFullYear();
@@ -18,7 +19,7 @@ export const useChurchSettings = () => {
       const client = getSupabaseClient();
       const { data, error } = await client
         .from("church_settings")
-        .select("id, year, annual_goal, best_group_id")
+        .select("id, year, annual_goal, best_group_id, best_group_name")
         .eq("year", currentYear())
         .maybeSingle();
       if (error) {
@@ -65,7 +66,10 @@ export const useChurchTotalCollected = () => {
 export const useUpdateChurchSettings = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { annual_goal: number; best_group_id: string | null }) => {
+    mutationFn: async (input: {
+      annual_goal: number;
+      best_group_name: string | null;
+    }) => {
       const client = getSupabaseClient();
       const year = currentYear();
 
@@ -80,16 +84,16 @@ export const useUpdateChurchSettings = () => {
           .from("church_settings")
           .update({
             annual_goal: input.annual_goal,
-            best_group_id: input.best_group_id,
-          })
+            best_group_name: input.best_group_name,
+          } as any)
           .eq("id", existing.id);
         if (error) throw error;
       } else {
         const { error } = await client.from("church_settings").insert({
           year,
           annual_goal: input.annual_goal,
-          best_group_id: input.best_group_id,
-        });
+          best_group_name: input.best_group_name,
+        } as any);
         if (error) throw error;
       }
     },

@@ -107,10 +107,14 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
     }
 
     const cleanPhone = phone.replace(/\s/g, "");
+    if (!cleanPhone || cleanPhone.length < 10) {
+      toast.error("Enter a valid phone number");
+      return;
+    }
 
     setIsProcessing(true);
     setPaymentState("processing");
-    setStatusMessage("Preparing secure checkout page...");
+    setStatusMessage("Sending USSD push to your phone...");
 
     // Demo mode (guest dashboard)
     if (isSimulated) {
@@ -129,7 +133,7 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
       const { data, error } = await supabase.functions.invoke("clickpesa-initiate", {
         body: {
           amount: numericAmount,
-          phone: cleanPhone || undefined,
+          phone: cleanPhone,
           userId: userId ?? null,
           reference: reference || null,
         },
@@ -146,18 +150,8 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
       }
 
       const orderReference: string = (data as any).orderReference;
-      const url: string = (data as any).checkoutUrl;
-      setCheckoutUrl(url);
-
-      // Open hosted checkout in a new tab/window
-      const opened = window.open(url, "_blank", "noopener,noreferrer");
-      if (!opened) {
-        // Pop-up was blocked — fall back to same-window navigation hint
-        setStatusMessage("Pop-up blocked. Click the link below to continue.");
-      } else {
-        setStatusMessage("Complete the payment in the new tab. We'll update here automatically.");
-      }
-      toast.success("Checkout opened. Complete the payment to continue.");
+      setStatusMessage("Check your phone and enter PIN to confirm payment.");
+      toast.success("USSD push sent. Confirm on your phone.");
 
       const finalStatus = await pollStatus(orderReference);
       if (finalStatus === "success") {

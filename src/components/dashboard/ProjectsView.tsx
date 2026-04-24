@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { createSupabaseClient } from "@/lib/supabase/client";
+import { createSupabaseClient } from "@/lib/supabase/client.ts";
 import { FolderKanban, Plus, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";

@@ -1,6 +1,6 @@
 // Singleton Supabase client to prevent multiple instances
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { getSession } from '@/lib/auth';
+import { getSession } from '../auth';
 
 let supabaseClient: SupabaseClient | null = null;
 

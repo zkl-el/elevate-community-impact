@@ -63,7 +63,7 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentState, setPaymentState] = useState<"form" | "processing" | "success" | "error">("form");
   const [statusMessage, setStatusMessage] = useState<string>("");
-  const [checkoutUrl, setCheckoutUrl] = useState<string>("");
+  
 
   const formatPhoneNumber = (value: string): string => {
     const digits = value.replace(/\D/g, "").slice(0, 12);
@@ -107,10 +107,14 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
     }
 
     const cleanPhone = phone.replace(/\s/g, "");
+    if (!cleanPhone || cleanPhone.length < 10) {
+      toast.error("Enter a valid phone number");
+      return;
+    }
 
     setIsProcessing(true);
     setPaymentState("processing");
-    setStatusMessage("Preparing secure checkout page...");
+    setStatusMessage("Sending USSD push to your phone...");
 
     // Demo mode (guest dashboard)
     if (isSimulated) {
@@ -129,7 +133,7 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
       const { data, error } = await supabase.functions.invoke("clickpesa-initiate", {
         body: {
           amount: numericAmount,
-          phone: cleanPhone || undefined,
+          phone: cleanPhone,
           userId: userId ?? null,
           reference: reference || null,
         },
@@ -146,18 +150,8 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
       }
 
       const orderReference: string = (data as any).orderReference;
-      const url: string = (data as any).checkoutUrl;
-      setCheckoutUrl(url);
-
-      // Open hosted checkout in a new tab/window
-      const opened = window.open(url, "_blank", "noopener,noreferrer");
-      if (!opened) {
-        // Pop-up was blocked — fall back to same-window navigation hint
-        setStatusMessage("Pop-up blocked. Click the link below to continue.");
-      } else {
-        setStatusMessage("Complete the payment in the new tab. We'll update here automatically.");
-      }
-      toast.success("Checkout opened. Complete the payment to continue.");
+      setStatusMessage("Check your phone and enter PIN to confirm payment.");
+      toast.success("USSD push sent. Confirm on your phone.");
 
       const finalStatus = await pollStatus(orderReference);
       if (finalStatus === "success") {
@@ -187,18 +181,8 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
     return (
       <div className="text-center py-10 space-y-4">
         <Loader2 className="w-12 h-12 mx-auto text-gold animate-spin" />
-        <h3 className="text-xl font-display text-white">Waiting for Payment</h3>
+        <h3 className="text-xl font-display text-white">Check Your Phone</h3>
         <p className="text-sm text-white/70 max-w-xs mx-auto">{statusMessage}</p>
-        {checkoutUrl && (
-          <a
-            href={checkoutUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block text-gold underline text-sm"
-          >
-            Open checkout page
-          </a>
-        )}
       </div>
     );
   }
@@ -224,7 +208,7 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
           </div>
         </div>
         <motion.button
-          onClick={() => { setPaymentState("form"); setAmount(""); setPhone(""); setReference(""); setStatusMessage(""); setCheckoutUrl(""); }}
+          onClick={() => { setPaymentState("form"); setAmount(""); setPhone(""); setReference(""); setStatusMessage(""); }}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           className="w-full py-3 px-6 rounded-xl gradient-gold text-primary-foreground font-semibold transition-all shadow-lg"
@@ -244,7 +228,7 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
         <h3 className="text-xl font-display text-white">Payment Failed</h3>
         <p className="text-sm text-white/70 max-w-xs mx-auto">{statusMessage}</p>
         <button
-          onClick={() => { setPaymentState("form"); setStatusMessage(""); setCheckoutUrl(""); }}
+          onClick={() => { setPaymentState("form"); setStatusMessage(""); }}
           className="w-full py-3 px-6 rounded-xl gradient-gold text-primary-foreground font-semibold"
         >
           Try Again

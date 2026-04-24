@@ -1,5 +1,6 @@
-// ClickPesa - Initiate USSD Push payment (mobile money)
-// Generates JWT, builds checksum, creates pending contribution row, calls ClickPesa.
+// ClickPesa - Initiate USSD Push (direct mobile money charge)
+// User receives a USSD prompt on their phone and confirms with their PIN.
+// No redirect / no hosted checkout — fully in-app experience.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -12,21 +13,15 @@ const corsHeaders = {
 const CLICKPESA_BASE = "https://api.clickpesa.com";
 const CLIENT_ID = Deno.env.get("CLICKPESA_CLIENT_ID")!;
 const API_KEY = Deno.env.get("CLICKPESA_API_KEY")!;
-const CHECKSUM_KEY = Deno.env.get("CLICKPESA_CHECKSUM_KEY")!;
+const CHECKSUM_KEY = Deno.env.get("CLICKPESA_CHECKSUM_KEY") ?? "";
 
-// In-memory token cache (per cold start)
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
 async function generateToken(): Promise<string> {
-  if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) {
-    return cachedToken.token;
-  }
+  if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) return cachedToken.token;
   const res = await fetch(`${CLICKPESA_BASE}/third-parties/generate-token`, {
     method: "POST",
-    headers: {
-      "client-id": CLIENT_ID,
-      "api-key": API_KEY,
-    },
+    headers: { "client-id": CLIENT_ID, "api-key": API_KEY },
   });
   const text = await res.text();
   if (!res.ok) {
@@ -34,7 +29,6 @@ async function generateToken(): Promise<string> {
     throw new Error(`Token generation failed: ${res.status} ${text}`);
   }
   const data = JSON.parse(text);
-  // ClickPesa returns token in either `token` or `Authorization` like "Bearer xxx"
   const raw: string = data.token ?? data.Authorization ?? "";
   const token = raw.replace(/^Bearer\s+/i, "").trim();
   if (!token) throw new Error("Empty token from ClickPesa");
@@ -57,7 +51,6 @@ async function hmacSha256Hex(key: string, message: string): Promise<string> {
     .join("");
 }
 
-// Build checksum: alphabetically-sorted keys, exclude checksum & checksumMethod, concatenate values
 async function buildChecksum(payload: Record<string, unknown>): Promise<string> {
   const keys = Object.keys(payload)
     .filter((k) => k !== "checksum" && k !== "checksumMethod")
@@ -66,8 +59,9 @@ async function buildChecksum(payload: Record<string, unknown>): Promise<string> 
   return await hmacSha256Hex(CHECKSUM_KEY, message);
 }
 
-function normalizePhone(input: string): string {
-  const digits = input.replace(/\D/g, "");
+// Normalize a Tanzanian phone to 255XXXXXXXXX format expected by ClickPesa.
+function normalizePhone(raw: string): string {
+  const digits = String(raw || "").replace(/\D/g, "");
   if (digits.startsWith("255")) return digits;
   if (digits.startsWith("0")) return "255" + digits.slice(1);
   if (digits.length === 9) return "255" + digits;
@@ -79,27 +73,28 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { amount, phone, userId, projectId, reference: noteRef } = body ?? {};
+    const {
+      amount,
+      phone,
+      userId,
+      projectId,
+      reference: noteRef,
+    } = body ?? {};
 
-    if (!amount || Number(amount) < 500 || Number(amount) > 3_000_000) {
-      return new Response(JSON.stringify({ success: false, error: "Amount must be between 500 and 3000000" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if (!phone || typeof phone !== "string") {
-      return new Response(JSON.stringify({ success: false, error: "Phone required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const numAmount = Number(amount);
+    if (!numAmount || numAmount < 500 || numAmount > 3_000_000) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Amount must be between 500 and 3,000,000 TZS" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
-    const normalizedPhone = normalizePhone(phone);
-    if (normalizedPhone.length !== 12) {
-      return new Response(JSON.stringify({ success: false, error: "Invalid phone format" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const cleanPhone = normalizePhone(phone || "");
+    if (!cleanPhone || cleanPhone.length < 12) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Valid phone number required for USSD push" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     const supabase = createClient(
@@ -107,18 +102,17 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Unique reference (max 20 chars per ClickPesa). base36 keeps it short.
+    // Unique reference (max 20 chars per ClickPesa)
     const orderReference = `CK${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
       .toUpperCase()
       .slice(0, 20);
 
-    // Insert pending contribution
     const { data: contribution, error: insertError } = await supabase
       .from("contributions")
       .insert({
         user_id: userId ?? null,
         project_id: projectId ?? null,
-        amount: Number(amount),
+        amount: numAmount,
         method: "mobile_money",
         reference: noteRef ?? null,
         status: "pending",
@@ -137,73 +131,72 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get JWT
     const token = await generateToken();
 
-    // Build USSD push payload
-    // NOTE: checksum is only required if explicitly enabled in the ClickPesa dashboard.
-    // This account has it disabled, so we omit it entirely (sending one triggers "Invalid checksum").
-    const finalPayload: Record<string, unknown> = {
-      amount: String(amount),
+    // Step 1: Preview to confirm the order is accepted
+    const previewPayload: Record<string, unknown> = {
+      amount: String(numAmount),
       currency: "TZS",
       orderReference,
-      phoneNumber: normalizedPhone,
+      phoneNumber: cleanPhone,
     };
+    if (CHECKSUM_KEY) previewPayload.checksum = await buildChecksum(previewPayload);
 
-    console.log("[clickpesa] initiating", { orderReference, amount, phone: normalizedPhone });
+    console.log("[clickpesa] preview USSD", { orderReference, amount: numAmount, phone: cleanPhone });
 
-    const cpRes = await fetch(`${CLICKPESA_BASE}/third-parties/payments/initiate-ussd-push-request`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
+    const previewRes = await fetch(
+      `${CLICKPESA_BASE}/third-parties/payments/preview-ussd-push-request`,
+      {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(previewPayload),
       },
-      body: JSON.stringify(finalPayload),
-    });
-    const cpText = await cpRes.text();
-    let cpData: any;
-    try { cpData = JSON.parse(cpText); } catch { cpData = { raw: cpText }; }
+    );
+    const previewText = await previewRes.text();
+    let previewData: any;
+    try { previewData = JSON.parse(previewText); } catch { previewData = { raw: previewText }; }
+    console.log("[clickpesa] preview response", previewRes.status, previewData);
 
-    console.log("[clickpesa] response", cpRes.status, cpData);
+    // Some accounts return an array of available payment methods, others a single object.
+    const methods = Array.isArray(previewData) ? previewData : (previewData?.activeMethods ?? []);
+    const firstActive = Array.isArray(methods) && methods.length > 0 ? methods[0] : null;
 
-    if (!cpRes.ok) {
-      const rawMsg = String(cpData?.message || cpData?.error || "Payment request failed");
-      const lower = rawMsg.toLowerCase();
-
-      // Insufficient funds: ClickPesa blocks USSD push upstream, but from the user's
-      // perspective we treat it as "request sent — phone will reject if balance is low".
-      // Keep contribution pending so webhook can finalize if the user tops up in time.
-      if (lower.includes("insufficient")) {
-        console.log("[clickpesa] insufficient funds — keeping pending, telling user to check phone");
-        return new Response(
-          JSON.stringify({
-            success: true,
-            orderReference,
-            contributionId: contribution.id,
-            message: "Ombi la malipo limetumwa. Tafadhali angalia simu yako na ingiza PIN. Kama salio halitoshi, simu itakuonyesha ujumbe.",
-          }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-
-      // Other errors are real failures — mark contribution as failed.
-      await supabase
-        .from("contributions")
-        .update({ status: "failed" })
-        .eq("id", contribution.id);
-
-      let friendly = rawMsg;
-      let code = "provider_error";
-      if (lower.includes("invalid") && lower.includes("phone")) {
-        friendly = "Namba ya simu si sahihi. Hakiki namba kisha jaribu tena.";
-        code = "invalid_phone";
-      } else if (lower.includes("timeout") || lower.includes("timed out")) {
-        friendly = "Mtandao umechelewa kujibu. Tafadhali jaribu tena.";
-        code = "timeout";
-      }
-
+    if (!previewRes.ok || (Array.isArray(methods) && methods.length === 0)) {
+      await supabase.from("contributions").update({ status: "failed" }).eq("id", contribution.id);
+      const msg = previewData?.message || "No mobile money provider available for this number";
       return new Response(
-        JSON.stringify({ success: false, code, error: friendly, details: cpData }),
+        JSON.stringify({ success: false, error: msg, details: previewData }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // Step 2: Initiate the USSD push
+    const initiatePayload: Record<string, unknown> = {
+      amount: String(numAmount),
+      currency: "TZS",
+      orderReference,
+      phoneNumber: cleanPhone,
+    };
+    if (CHECKSUM_KEY) initiatePayload.checksum = await buildChecksum(initiatePayload);
+
+    const initiateRes = await fetch(
+      `${CLICKPESA_BASE}/third-parties/payments/initiate-ussd-push-request`,
+      {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(initiatePayload),
+      },
+    );
+    const initText = await initiateRes.text();
+    let initData: any;
+    try { initData = JSON.parse(initText); } catch { initData = { raw: initText }; }
+    console.log("[clickpesa] initiate response", initiateRes.status, initData);
+
+    if (!initiateRes.ok) {
+      await supabase.from("contributions").update({ status: "failed" }).eq("id", contribution.id);
+      const msg = initData?.message || "Could not send USSD push. Please try again.";
+      return new Response(
+        JSON.stringify({ success: false, error: msg, details: initData }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -213,7 +206,8 @@ Deno.serve(async (req) => {
         success: true,
         orderReference,
         contributionId: contribution.id,
-        provider: cpData,
+        provider: firstActive?.name ?? null,
+        message: "USSD push sent. Confirm on your phone.",
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

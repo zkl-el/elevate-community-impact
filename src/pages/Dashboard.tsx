@@ -53,22 +53,17 @@ const LevelIcon = ({ name }: { name: string }) => {
 
 
 
-// ClickPesa Payment Form (mobile money via USSD push)
+// ClickPesa Hosted Checkout Form
+// User clicks "Contribute" → we ask ClickPesa for a hosted checkout URL → open in new tab.
+// Hosted page lets them choose Mobile Money, Bank Transfer, or Card.
 const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: boolean }) => {
   const [phone, setPhone] = useState("");
-  const [selectedMobileMethod, setSelectedMobileMethod] = useState<string | null>(null);
   const [reference, setReference] = useState("");
   const [amount, setAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentState, setPaymentState] = useState<"form" | "processing" | "success" | "error">("form");
   const [statusMessage, setStatusMessage] = useState<string>("");
-
-  const mobileMoneyMethods = [
-    { id: "mpesa", name: "M-Pesa" },
-    { id: "tigopesa", name: "Tigo Pesa" },
-    { id: "airtel", name: "Airtel Money" },
-    { id: "halopesa", name: "HaloPesa" },
-  ];
+  
 
   const formatPhoneNumber = (value: string): string => {
     const digits = value.replace(/\D/g, "").slice(0, 12);
@@ -80,11 +75,11 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
 
   const formatCurrency = (amt: number): string => amt.toLocaleString("en-TZ");
 
-  const pollStatus = async (orderReference: string, maxAttempts = 24): Promise<string> => {
+  const pollStatus = async (orderReference: string, maxAttempts = 60): Promise<string> => {
     const session = getSession();
     const supabase = createSupabaseClient(session?.access_token);
     for (let i = 0; i < maxAttempts; i++) {
-      await new Promise((r) => setTimeout(r, 5000)); // poll every 5s, up to ~2min
+      await new Promise((r) => setTimeout(r, 5000)); // poll every 5s, up to ~5min
       try {
         const { data, error } = await supabase.functions.invoke("clickpesa-status", {
           body: { orderReference },
@@ -112,18 +107,14 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
     }
 
     const cleanPhone = phone.replace(/\s/g, "");
-    if (cleanPhone.length !== 12) {
-      toast.error("Enter a valid phone number (2557XXXXXXXX)");
-      return;
-    }
-    if (!selectedMobileMethod) {
-      toast.error("Please select a mobile money provider");
+    if (!cleanPhone || cleanPhone.length < 10) {
+      toast.error("Enter a valid phone number");
       return;
     }
 
     setIsProcessing(true);
     setPaymentState("processing");
-    setStatusMessage("Sending payment request to your phone...");
+    setStatusMessage("Sending USSD push to your phone...");
 
     // Demo mode (guest dashboard)
     if (isSimulated) {
@@ -159,8 +150,8 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
       }
 
       const orderReference: string = (data as any).orderReference;
-      setStatusMessage("Check your phone and enter your PIN to approve...");
-      toast.success("Payment request sent. Check your phone.");
+      setStatusMessage("Check your phone and enter PIN to confirm payment.");
+      toast.success("USSD push sent. Confirm on your phone.");
 
       const finalStatus = await pollStatus(orderReference);
       if (finalStatus === "success") {
@@ -169,7 +160,7 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
         toast.success("Contribution received!");
       } else if (finalStatus === "timeout") {
         setPaymentState("error");
-        setStatusMessage("Timed out waiting for confirmation. Check 'My Contributions' shortly.");
+        setStatusMessage("We didn't receive a confirmation in time. Check 'My Contributions' shortly.");
         toast.error("Timed out. We will update once ClickPesa confirms.");
       } else {
         setPaymentState("error");
@@ -190,7 +181,7 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
     return (
       <div className="text-center py-10 space-y-4">
         <Loader2 className="w-12 h-12 mx-auto text-gold animate-spin" />
-        <h3 className="text-xl font-display text-white">Processing Payment</h3>
+        <h3 className="text-xl font-display text-white">Check Your Phone</h3>
         <p className="text-sm text-white/70 max-w-xs mx-auto">{statusMessage}</p>
       </div>
     );
@@ -248,9 +239,18 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
 
   return (
     <div className="space-y-4">
+      <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-xs text-white/70">
+        You'll be redirected to ClickPesa's secure checkout page where you can pay with
+        <strong className="text-white"> Mobile Money</strong>,
+        <strong className="text-white"> Bank Transfer</strong>, or
+        <strong className="text-white"> Card</strong>.
+      </div>
+
       <div className="space-y-3">
         <div className="space-y-1">
-          <label className="text-sm font-semibold text-white">Phone Number</label>
+          <label className="text-sm font-semibold text-white">
+            Phone Number <span className="text-white/40 font-normal">(Optional)</span>
+          </label>
           <input
             type="tel"
             value={phone}
@@ -271,30 +271,6 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
             placeholder="e.g., Tithe, Offering"
             className="w-full h-11 px-4 rounded-xl border-2 bg-white/95 text-base font-medium focus:outline-none focus:ring-2 focus:ring-white/20 border-border/50 focus:border-gold"
           />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm font-semibold text-white">Mobile Money Provider</label>
-          <div className="grid grid-cols-2 gap-2">
-            {mobileMoneyMethods.map((method) => (
-              <button
-                key={method.id}
-                type="button"
-                onClick={() => setSelectedMobileMethod(method.id)}
-                className={`relative p-2 rounded-lg border-2 text-center transition-all ${
-                  selectedMobileMethod === method.id
-                    ? "border-gold bg-gold/10"
-                    : "border-white/20 bg-white/5 hover:border-white/40"
-                }`}
-              >
-                <span className="font-medium text-white text-xs">{method.name}</span>
-                {selectedMobileMethod === method.id && (
-                  <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-gold flex items-center justify-center">
-                    <CheckCircle2 className="w-2 h-2 text-primary" />
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
@@ -328,7 +304,7 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
         {isProcessing ? (
           <>
             <Loader2 className="w-5 h-5 animate-spin" />
-            Processing...
+            Opening checkout...
           </>
         ) : (
           "Contribute Now"
@@ -337,6 +313,7 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
     </div>
   );
 };
+
 
 
 const ContributionsList = ({ contributions }: { contributions: any[] }) => {

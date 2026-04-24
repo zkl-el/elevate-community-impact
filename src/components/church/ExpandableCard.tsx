@@ -12,7 +12,7 @@ interface ExpandableCardProps {
   onContributeClick?: () => void;
 }
 
-const ease = [0.22, 1, 0.36, 1];
+const ease: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 const ExpandableCard = ({ title, icon, children, isExpanded, onToggle, index }: ExpandableCardProps) => {
   const contentId = `expandable-card-content-${index}`;

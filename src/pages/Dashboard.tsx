@@ -63,7 +63,7 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentState, setPaymentState] = useState<"form" | "processing" | "success" | "error">("form");
   const [statusMessage, setStatusMessage] = useState<string>("");
-  const [checkoutUrl, setCheckoutUrl] = useState<string>("");
+  
 
   const formatPhoneNumber = (value: string): string => {
     const digits = value.replace(/\D/g, "").slice(0, 12);

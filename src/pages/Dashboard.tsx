@@ -208,7 +208,7 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
           </div>
         </div>
         <motion.button
-          onClick={() => { setPaymentState("form"); setAmount(""); setPhone(""); setReference(""); setStatusMessage(""); setCheckoutUrl(""); }}
+          onClick={() => { setPaymentState("form"); setAmount(""); setPhone(""); setReference(""); setStatusMessage(""); }}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           className="w-full py-3 px-6 rounded-xl gradient-gold text-primary-foreground font-semibold transition-all shadow-lg"

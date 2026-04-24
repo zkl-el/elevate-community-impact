@@ -7,7 +7,7 @@ import confetti from "canvas-confetti";
 import { getSession, clearSession } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { useMemberDashboard, usePublicDashboard } from "@/hooks/useChurchData";
-import { createSupabaseClient } from "../../lib/supabase/client.ts";
+import { createSupabaseClient } from "../lib/supabase/client.ts";
 // LEVELS removed - using Lucide icons directly
 import Header from "@/components/church/Header";
 import { cn } from "@/lib/utils";

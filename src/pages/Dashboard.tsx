@@ -181,18 +181,8 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
     return (
       <div className="text-center py-10 space-y-4">
         <Loader2 className="w-12 h-12 mx-auto text-gold animate-spin" />
-        <h3 className="text-xl font-display text-white">Waiting for Payment</h3>
+        <h3 className="text-xl font-display text-white">Check Your Phone</h3>
         <p className="text-sm text-white/70 max-w-xs mx-auto">{statusMessage}</p>
-        {checkoutUrl && (
-          <a
-            href={checkoutUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block text-gold underline text-sm"
-          >
-            Open checkout page
-          </a>
-        )}
       </div>
     );
   }

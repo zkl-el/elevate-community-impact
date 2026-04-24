@@ -228,7 +228,7 @@ const PaymentForm = ({ userId, isSimulated }: { userId?: string; isSimulated: bo
         <h3 className="text-xl font-display text-white">Payment Failed</h3>
         <p className="text-sm text-white/70 max-w-xs mx-auto">{statusMessage}</p>
         <button
-          onClick={() => { setPaymentState("form"); setStatusMessage(""); setCheckoutUrl(""); }}
+          onClick={() => { setPaymentState("form"); setStatusMessage(""); }}
           className="w-full py-3 px-6 rounded-xl gradient-gold text-primary-foreground font-semibold"
         >
           Try Again

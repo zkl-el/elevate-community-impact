@@ -1,8 +1,6 @@
-// ClickPesa - Generate Hosted Checkout URL
-// User is redirected to a ClickPesa-hosted page where they can pay via
-// mobile money (M-Pesa, Tigo, Airtel, Halopesa), bank transfer, or card.
-// We create a "pending" contribution row, ask ClickPesa for a checkout URL,
-// and return that URL to the frontend, which opens it in a new tab/window.
+// ClickPesa - Initiate USSD Push (direct mobile money charge)
+// User receives a USSD prompt on their phone and confirms with their PIN.
+// No redirect / no hosted checkout — fully in-app experience.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -17,13 +15,10 @@ const CLIENT_ID = Deno.env.get("CLICKPESA_CLIENT_ID")!;
 const API_KEY = Deno.env.get("CLICKPESA_API_KEY")!;
 const CHECKSUM_KEY = Deno.env.get("CLICKPESA_CHECKSUM_KEY") ?? "";
 
-// In-memory token cache (per cold start)
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
 async function generateToken(): Promise<string> {
-  if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) {
-    return cachedToken.token;
-  }
+  if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) return cachedToken.token;
   const res = await fetch(`${CLICKPESA_BASE}/third-parties/generate-token`, {
     method: "POST",
     headers: { "client-id": CLIENT_ID, "api-key": API_KEY },
@@ -64,6 +59,15 @@ async function buildChecksum(payload: Record<string, unknown>): Promise<string> 
   return await hmacSha256Hex(CHECKSUM_KEY, message);
 }
 
+// Normalize a Tanzanian phone to 255XXXXXXXXX format expected by ClickPesa.
+function normalizePhone(raw: string): string {
+  const digits = String(raw || "").replace(/\D/g, "");
+  if (digits.startsWith("255")) return digits;
+  if (digits.startsWith("0")) return "255" + digits.slice(1);
+  if (digits.length === 9) return "255" + digits;
+  return digits;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -75,8 +79,6 @@ Deno.serve(async (req) => {
       userId,
       projectId,
       reference: noteRef,
-      customerName,
-      customerEmail,
     } = body ?? {};
 
     const numAmount = Number(amount);
@@ -87,24 +89,31 @@ Deno.serve(async (req) => {
       );
     }
 
+    const cleanPhone = normalizePhone(phone || "");
+    if (!cleanPhone || cleanPhone.length < 12) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Valid phone number required for USSD push" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Unique reference (max 20 chars per ClickPesa). base36 keeps it short.
+    // Unique reference (max 20 chars per ClickPesa)
     const orderReference = `CK${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
       .toUpperCase()
       .slice(0, 20);
 
-    // Insert pending contribution row up-front so we can track it via webhook/poll.
     const { data: contribution, error: insertError } = await supabase
       .from("contributions")
       .insert({
         user_id: userId ?? null,
         project_id: projectId ?? null,
         amount: numAmount,
-        method: "other",
+        method: "mobile_money",
         reference: noteRef ?? null,
         status: "pending",
         clickpesa_order_reference: orderReference,
@@ -124,72 +133,70 @@ Deno.serve(async (req) => {
 
     const token = await generateToken();
 
-    // Build hosted checkout payload. ClickPesa hosted endpoint accepts mobile money,
-    // bank transfer, and card payments — the user picks one on the hosted page.
-    const checkoutPayload: Record<string, unknown> = {
+    // Step 1: Preview to confirm the order is accepted
+    const previewPayload: Record<string, unknown> = {
       amount: String(numAmount),
       currency: "TZS",
       orderReference,
+      phoneNumber: cleanPhone,
     };
-    if (customerName) checkoutPayload.customerName = String(customerName);
-    if (customerEmail) checkoutPayload.customerEmail = String(customerEmail);
-    if (phone) checkoutPayload.customerPhoneNumber = String(phone).replace(/\D/g, "");
+    if (CHECKSUM_KEY) previewPayload.checksum = await buildChecksum(previewPayload);
 
-    // Add checksum only when a checksum key is configured for this account
-    if (CHECKSUM_KEY) {
-      checkoutPayload.checksum = await buildChecksum(checkoutPayload);
-    }
+    console.log("[clickpesa] preview USSD", { orderReference, amount: numAmount, phone: cleanPhone });
 
-    console.log("[clickpesa] generating hosted checkout", { orderReference, amount: numAmount });
-
-    const cpRes = await fetch(`${CLICKPESA_BASE}/webshop/generate-checkout-url`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
+    const previewRes = await fetch(
+      `${CLICKPESA_BASE}/third-parties/payments/preview-ussd-push-request`,
+      {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(previewPayload),
       },
-      body: JSON.stringify(checkoutPayload),
-    });
-    const cpText = await cpRes.text();
-    let cpData: any;
-    try { cpData = JSON.parse(cpText); } catch { cpData = { raw: cpText }; }
+    );
+    const previewText = await previewRes.text();
+    let previewData: any;
+    try { previewData = JSON.parse(previewText); } catch { previewData = { raw: previewText }; }
+    console.log("[clickpesa] preview response", previewRes.status, previewData);
 
-    console.log("[clickpesa] hosted response", cpRes.status, cpData);
+    // Some accounts return an array of available payment methods, others a single object.
+    const methods = Array.isArray(previewData) ? previewData : (previewData?.activeMethods ?? []);
+    const firstActive = Array.isArray(methods) && methods.length > 0 ? methods[0] : null;
 
-    if (!cpRes.ok) {
-      // Mark as failed and return a friendly error
-      await supabase
-        .from("contributions")
-        .update({ status: "failed" })
-        .eq("id", contribution.id);
-
-      const rawMsg = String(cpData?.message || cpData?.error || "Could not start payment");
+    if (!previewRes.ok || (Array.isArray(methods) && methods.length === 0)) {
+      await supabase.from("contributions").update({ status: "failed" }).eq("id", contribution.id);
+      const msg = previewData?.message || "No mobile money provider available for this number";
       return new Response(
-        JSON.stringify({ success: false, error: rawMsg, details: cpData }),
+        JSON.stringify({ success: false, error: msg, details: previewData }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    const checkoutUrl: string | undefined =
-      cpData?.checkoutLink ||
-      cpData?.checkout_url ||
-      cpData?.checkoutUrl ||
-      cpData?.url ||
-      cpData?.data?.checkoutUrl ||
-      cpData?.data?.url;
+    // Step 2: Initiate the USSD push
+    const initiatePayload: Record<string, unknown> = {
+      amount: String(numAmount),
+      currency: "TZS",
+      orderReference,
+      phoneNumber: cleanPhone,
+    };
+    if (CHECKSUM_KEY) initiatePayload.checksum = await buildChecksum(initiatePayload);
 
-    if (!checkoutUrl) {
-      console.error("[clickpesa] no checkoutUrl in response", cpData);
-      await supabase
-        .from("contributions")
-        .update({ status: "failed" })
-        .eq("id", contribution.id);
+    const initiateRes = await fetch(
+      `${CLICKPESA_BASE}/third-parties/payments/initiate-ussd-push-request`,
+      {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(initiatePayload),
+      },
+    );
+    const initText = await initiateRes.text();
+    let initData: any;
+    try { initData = JSON.parse(initText); } catch { initData = { raw: initText }; }
+    console.log("[clickpesa] initiate response", initiateRes.status, initData);
+
+    if (!initiateRes.ok) {
+      await supabase.from("contributions").update({ status: "failed" }).eq("id", contribution.id);
+      const msg = initData?.message || "Could not send USSD push. Please try again.";
       return new Response(
-        JSON.stringify({
-          success: false,
-          error: "ClickPesa did not return a checkout URL. Please try again.",
-          details: cpData,
-        }),
+        JSON.stringify({ success: false, error: msg, details: initData }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -199,7 +206,8 @@ Deno.serve(async (req) => {
         success: true,
         orderReference,
         contributionId: contribution.id,
-        checkoutUrl,
+        provider: firstActive?.name ?? null,
+        message: "USSD push sent. Confirm on your phone.",
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

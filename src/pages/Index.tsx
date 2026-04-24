@@ -240,18 +240,45 @@ const Index = () => {
       return;
     }
 
+    // Bank transfer: no API call, just display the selected bank details
+    if (paymentType === "bank_transfer") {
+      if (!selectedBank) {
+        toast.error("Please select a bank");
+        return;
+      }
+      setPaymentSummary({
+        type: "bank_transfer",
+        method: selectedBank,
+        accountNumber,
+        reference,
+        amount: numericAmount,
+      });
+      setPaymentState("success");
+      return;
+    }
+
+    // Mobile money: validate phone + provider, then trigger USSD push
+    const cleanPhone = guestPhone.replace(/\s/g, "");
+    if (!cleanPhone || cleanPhone.length < 10) {
+      toast.error("Enter a valid phone number");
+      return;
+    }
+    if (!selectedMobileMethod) {
+      toast.error("Select a mobile money provider");
+      return;
+    }
+
     setIsProcessing(true);
     setPaymentStep("sending");
     setPaymentError("");
 
     try {
-      const cleanPhone = guestPhone.replace(/\s/g, "");
       const supabase = createSupabaseClient(getSession()?.access_token);
 
       const { data, error } = await supabase.functions.invoke("clickpesa-initiate", {
         body: {
           amount: numericAmount,
-          phone: cleanPhone || undefined,
+          phone: cleanPhone,
           userId: null,
           projectId: null,
           reference: reference || null,
@@ -268,13 +295,11 @@ const Index = () => {
       }
 
       const orderReference = (data as any).orderReference;
-      const checkoutUrl = (data as any).checkoutUrl;
 
-      // Open hosted checkout in a new tab — covers mobile money + bank + card
-      window.open(checkoutUrl, "_blank", "noopener,noreferrer");
+      // USSD push has been sent — user just confirms on their phone
       setPaymentStep("pending");
       setStkPushSent(true);
-      toast.info("Checkout opened. Complete the payment to continue.");
+      toast.success("Check your phone and enter PIN to confirm");
 
       const finalStatus = await pollGuestPaymentStatus(orderReference);
       setStkPushSent(false);
@@ -283,7 +308,7 @@ const Index = () => {
         setPaymentStep("success");
         setPaymentSummary({
           type: "mobile_money",
-          method: null,
+          method: selectedMobileMethod,
           phone: cleanPhone,
           reference,
           amount: numericAmount,

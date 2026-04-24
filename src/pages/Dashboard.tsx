@@ -735,7 +735,15 @@ Member • Chuo Kikuu SDA Church
                 onClick={(e) => e.stopPropagation()}
                 style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #0f2744 50%, #1a3a5c 100%)" }}
               >
-                <div className="p-4">
+                <div className="relative p-4">
+                  <button
+                    type="button"
+                    onClick={closeDropdown}
+                    aria-label="Close panel"
+                    className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-lg transition-colors hover:bg-white/10"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                   {actions.find(a => a.id === activePanel) && (
                     <div className="flex items-center gap-2 mb-4">
                       <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", actions.find(a => a.id === activePanel)!.color)}>

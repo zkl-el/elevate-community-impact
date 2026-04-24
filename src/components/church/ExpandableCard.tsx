@@ -1,4 +1,5 @@
-import { useRef, useEffect, useState } from "react";
+import { KeyboardEvent } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 
 interface ExpandableCardProps {
@@ -11,65 +12,106 @@ interface ExpandableCardProps {
   onContributeClick?: () => void;
 }
 
-const ExpandableCard = ({ title, icon, children, isExpanded, onToggle, index, onContributeClick }: ExpandableCardProps) => {
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState<number | undefined>(0);
+const ease = [0.22, 1, 0.36, 1];
 
-  useEffect(() => {
-    if (contentRef.current) {
-      if (isExpanded) {
-        setHeight(contentRef.current.scrollHeight);
-      } else {
-        setHeight(0);
-      }
+const ExpandableCard = ({ title, icon, children, isExpanded, onToggle, index }: ExpandableCardProps) => {
+  const contentId = `expandable-card-content-${index}`;
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onToggle();
     }
-  }, [isExpanded]);
+  };
+
+  const baseShadow = "0 18px 50px rgba(15, 23, 42, 0.14), 0 8px 24px rgba(59, 130, 246, 0.12);";
+  const liftedShadow = "0 30px 80px rgba(15, 23, 42, 0.18), 0 12px 36px rgba(59, 130, 246, 0.16);";
 
   return (
-    <div
-      className="relative overflow-hidden cursor-pointer rounded-2xl"
+    <motion.div
+      role="button"
+      tabIndex={0}
+      aria-expanded={isExpanded}
+      aria-controls={contentId}
       onClick={onToggle}
+      onKeyDown={handleKeyDown}
+      layout
+      initial={false}
+      animate={isExpanded ? {
+        rotateY: 0,
+        scale: 1,
+        y: 0,
+        boxShadow: liftedShadow,
+      } : {
+        rotateY: [0, -8, 8, 0],
+        scale: [1, 0.995, 0.985, 1],
+        boxShadow: baseShadow,
+      }}
+      transition={{
+        rotateY: { duration: 0.34, ease },
+        scale: { duration: 0.34, ease },
+        default: { duration: 0.38, ease },
+      }}
+      whileHover={{
+        y: -4,
+        boxShadow: liftedShadow,
+      }}
+      whileTap={{
+        scale: 0.982,
+        y: 1,
+      }}
+      className="relative overflow-hidden cursor-pointer rounded-[24px] border border-blue-900/40 bg-church-blue/95 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-4 focus-visible:ring-offset-slate-950"
       style={{
-        background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.95) 0%, rgba(59, 130, 246, 0.9) 100%)',
-        boxShadow: '0 10px 25px rgba(30, 58, 138, 0.2), 0 0 15px rgba(59, 130, 246, 0.1)',
-        border: '2px solid rgba(59, 130, 246, 0.3)',
+        background: "linear-gradient(145deg, rgba(12, 41, 92, 0.98) 0%, rgba(13, 55, 118, 0.98) 45%, rgba(10, 63, 146, 0.9) 100%)",
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
       }}
     >
-      {/* Card Content */}
       <div className="relative z-10">
-        {/* Card Header */}
-        <div className="p-6 flex items-center justify-between">
+        <motion.div
+          layout
+          className="flex items-center justify-between gap-4 px-6 py-6"
+        >
           <div className="flex items-center gap-3">
-            <div className="text-white">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-white shadow-inner">
               {icon}
             </div>
-            <h3 className="text-white font-display text-lg font-semibold">{title}</h3>
+            <div>
+              <h3 className="text-white font-display text-lg font-semibold tracking-tight">{title}</h3>
+            </div>
           </div>
-          <div
-            className="text-white/80"
+          <motion.div
+            animate={{ rotate: isExpanded ? 180 : 0 }}
+            transition={{ duration: 0.25, ease }}
+            className="text-white/85"
           >
-            <ChevronDown 
-              className={`w-5 h-5 transition-transform duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${isExpanded ? 'rotate-180' : ''}`}
-            />
+            <ChevronDown className="w-5 h-5" />
+          </motion.div>
+        </motion.div>
 
-          </div>
-        </div>
-
-        {/* Card Content - Expandable with smooth unfolding transition */}
-        <div
-          ref={contentRef}
+        <motion.div
+          layout
           className="overflow-hidden"
-          style={{ 
-            height: height,
-            transition: 'height 700ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-          }}
+          transition={{ duration: 0.42, ease }}
         >
-          <div className="px-6 pb-6 border-t border-white/20 pt-4">
-            {children}
-          </div>
-        </div>
+          <AnimatePresence initial={false}>
+            {isExpanded && (
+              <motion.div
+                key="content"
+                id={contentId}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.28, ease, delay: isExpanded ? 0.05 : 0 }}
+                className="px-6 pb-6 pt-4 border-t border-white/15"
+              >
+                {children}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -175,11 +217,16 @@ export const CallToActionCard = ({
           Your faithfulness in giving helps us continue our mission of sharing God's love and making a difference in the lives of others.
         </p>
         <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
             if (onContributeClick) onContributeClick();
           }}
-          className="px-8 py-4 rounded-lg bg-gold text-white font-semibold text-base shadow-lg transition-all duration-300 hover:bg-gold-dark hover:shadow-xl hover:-translate-y-1 w-full"
+          className="relative inline-flex w-full items-center justify-center rounded-xl border border-white/15 bg-gold px-8 py-4 text-base font-semibold text-white transition duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] transform will-change-transform overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-4 focus-visible:ring-offset-slate-950 hover:-translate-y-0.5 hover:bg-gold-dark/95 active:scale-[0.98] active:bg-gold-dark/90"
+          style={{
+            backgroundImage: 'linear-gradient(135deg, hsl(var(--gold)) 0%, hsl(var(--gold-light)) 100%)',
+            boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.08)',
+          }}
         >
           Press Here to Contribute
         </button>

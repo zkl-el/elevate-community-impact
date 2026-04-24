@@ -206,6 +206,29 @@ const Index = () => {
     setAmount(value);
   }, []);
 
+  const pollGuestPaymentStatus = async (orderReference: string, maxAttempts = 24): Promise<string> => {
+    const supabase = createSupabaseClient(getSession()?.access_token);
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      try {
+        const { data, error } = await supabase.functions.invoke("clickpesa-status", {
+          body: { orderReference },
+        });
+        if (error) {
+          console.warn("[guest-payment] status error", error);
+          continue;
+        }
+
+        const status = (data as any)?.status;
+        if (status === "success") return "success";
+        if (status === "failed" || status === "reversed") return status;
+      } catch (err) {
+        console.warn("[guest-payment] status exception", err);
+      }
+    }
+    return "timeout";
+  };
+
   const handleGuestPaymentSubmit = async () => {
     const newErrors: Record<string, string> = {};
     const numericAmount = parseInt(amount, 10);
@@ -237,53 +260,80 @@ const Index = () => {
       return;
     }
 
-    // Start payment simulation
     setIsProcessing(true);
     setPaymentStep("sending");
+    setPaymentError("");
 
     try {
-      // Step 1: Send payment request (simulate STK push for mobile money)
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
       if (paymentType === "mobile_money") {
+        const cleanPhone = guestPhone.replace(/\s/g, "");
+        const supabase = createSupabaseClient(getSession()?.access_token);
+
+        const { data, error } = await supabase.functions.invoke("clickpesa-initiate", {
+          body: {
+            amount: numericAmount,
+            phone: cleanPhone,
+            userId: null,
+            projectId: null,
+            reference: reference || null,
+          },
+        });
+
+        if (error || !(data as any)?.success) {
+          const msg = (data as any)?.error || error?.message || "Failed to initiate payment.";
+          setPaymentState("error");
+          setPaymentStep("error");
+          setPaymentError(msg);
+          toast.error(msg);
+          return;
+        }
+
+        const orderReference = (data as any).orderReference;
         setPaymentStep("pending");
         setStkPushSent(true);
-        toast.info(`STK Push sent to ${guestPhone} - Check your phone to confirm`);
-        
-        // Step 2: Wait for user to confirm (simulate)
-        await new Promise(resolve => setTimeout(resolve, 3000));
-      } else {
-        // Bank transfer - show details immediately
-        setPaymentStep("success");
-      }
+        toast.info("Payment request sent. Check your phone to approve.");
 
-      // Step 3: Simulate success (90% success rate for demo)
-      const success = Math.random() > 0.1;
-      
-      if (success) {
+        const finalStatus = await pollGuestPaymentStatus(orderReference);
+        setStkPushSent(false);
+
+        if (finalStatus === "success") {
+          setPaymentStep("success");
+          setPaymentSummary({
+            type: paymentType,
+            method: selectedMobileMethod,
+            phone: cleanPhone,
+            reference,
+            amount: numericAmount,
+          });
+          setPaymentState("success");
+          toast.success("Payment successful! Thank you for your contribution.");
+        } else {
+          setPaymentStep("error");
+          const errorMessage = finalStatus === "timeout"
+            ? "Payment timed out. Please check your phone and try again."
+            : "Payment failed. Please try again.";
+          setPaymentError(errorMessage);
+          setPaymentState("error");
+          toast.error(errorMessage);
+        }
+      } else {
         setPaymentStep("success");
         setPaymentSummary({
           type: paymentType,
-          method: paymentType === "mobile_money" ? selectedMobileMethod : selectedBank,
-          phone: paymentType === "mobile_money" ? guestPhone.replace(/\s/g, "") : undefined,
-          accountNumber: paymentType === "bank_transfer" ? accountNumber : undefined,
-          reference: reference,
+          method: selectedBank,
+          accountNumber,
+          reference,
           amount: numericAmount,
         });
         setPaymentState("success");
-        toast.success("Payment successful! Thank you for your contribution.");
-      } else {
-        setPaymentStep("error");
-        setPaymentError("Payment was cancelled or timed out. Please try again.");
-        setPaymentState("error");
+        toast.success("Bank transfer details ready. Please complete the payment.");
       }
-    } catch (error) {
+    } catch (error: any) {
       setPaymentStep("error");
-      setPaymentError("An error occurred. Please try again.");
+      setPaymentError(error?.message || "An error occurred. Please try again.");
       setPaymentState("error");
     } finally {
       setIsProcessing(false);
-      setStkPushSent(false);
     }
   };
 
@@ -441,21 +491,11 @@ const totalCollected = data?.total_collected ?? 0;
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
               onClick={() => setShowPicker(true)}
-              className="group relative inline-flex items-center gap-4 px-10 py-5 rounded-2xl bg-gradient-to-r from-gold via-amber-500 to-gold bg-size-200 animate-gradient font-bold text-lg text-white shadow-2xl hover:shadow-gold/40 transition-all duration-300 hover:bg-position-100 hover:-translate-y-2"
+              className="relative inline-flex items-center gap-4 px-10 py-5 rounded-2xl border border-transparent bg-gradient-to-r from-gold via-amber-500 to-gold bg-size-200 font-semibold text-lg text-white transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] transform hover:-translate-y-1 hover:bg-position-100 active:scale-[0.98] active:border-blue-950 active:border active:bg-gold-dark/95 focus:outline-none focus-visible:border-blue-900 focus-visible:ring-2 focus-visible:ring-blue-900/20 focus-visible:ring-offset-4 focus-visible:ring-offset-slate-950"
               style={{
                 backgroundSize: '200% 100%',
-                boxShadow: '0 10px 30px rgba(212, 160, 23, 0.4), 0 0 20px rgba(212, 160, 23, 0.2)',
               }}
             >
-              {/* Animated shine effect */}
-              <span className="absolute inset-0 rounded-2xl overflow-hidden">
-                <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-              </span>
-              
-              {/* Glow effect behind button */}
-              <span className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-gold via-amber-400 to-gold opacity-30 blur-lg group-hover:opacity-60 transition-opacity duration-300" />
-              
-              {/* Button content */}
               <span className="relative tracking-wide">
                 Press Here to Contribute
               </span>

@@ -1,6 +1,6 @@
 import { KeyboardEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 
 interface ExpandableCardProps {
   title: string;
@@ -12,7 +12,7 @@ interface ExpandableCardProps {
   onContributeClick?: () => void;
 }
 
-const ease = [0.22, 1, 0.36, 1];
+const ease: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 const ExpandableCard = ({ title, icon, children, isExpanded, onToggle, index }: ExpandableCardProps) => {
   const contentId = `expandable-card-content-${index}`;
@@ -70,7 +70,7 @@ const ExpandableCard = ({ title, icon, children, isExpanded, onToggle, index }: 
       <div className="relative z-10">
         <motion.div
           layout
-          className="flex items-center justify-between gap-4 px-6 py-6"
+          className="flex items-center justify-between gap-4 px-6 py-6 pr-16"
         >
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-white shadow-inner">
@@ -89,6 +89,27 @@ const ExpandableCard = ({ title, icon, children, isExpanded, onToggle, index }: 
           </motion.div>
         </motion.div>
 
+        {/* Rounded close X — top right, only when expanded */}
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggle();
+              }}
+              aria-label="Close"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.15 }}
+              className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full flex items-center justify-center bg-white/15 hover:bg-white/25 text-white border border-white/25 backdrop-blur-sm"
+            >
+              <X className="w-4 h-4" />
+            </motion.button>
+          )}
+        </AnimatePresence>
+
         <motion.div
           layout
           className="overflow-hidden"
@@ -103,7 +124,7 @@ const ExpandableCard = ({ title, icon, children, isExpanded, onToggle, index }: 
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.28, ease, delay: isExpanded ? 0.05 : 0 }}
-                className="px-6 pb-6 pt-4 border-t border-white/15"
+                className="px-6 pb-6 pt-4 border-t border-white/15 max-h-[480px] overflow-y-auto"
               >
                 {children}
               </motion.div>

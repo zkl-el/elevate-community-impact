@@ -206,7 +206,7 @@ const Index = () => {
     setAmount(value);
   }, []);
 
-  const pollGuestPaymentStatus = async (orderReference: string, maxAttempts = 24): Promise<string> => {
+  const pollGuestPaymentStatus = async (orderReference: string, maxAttempts = 60): Promise<string> => {
     const supabase = createSupabaseClient(getSession()?.access_token);
     for (let i = 0; i < maxAttempts; i++) {
       await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -230,33 +230,13 @@ const Index = () => {
   };
 
   const handleGuestPaymentSubmit = async () => {
-    const newErrors: Record<string, string> = {};
     const numericAmount = parseInt(amount, 10);
 
-    if (!amount || !validateAmount(numericAmount)) {
-      newErrors.amount = "Enter a valid amount (1 - 10,000,000 TZS)";
-    }
-
-    if (paymentType === "mobile_money") {
-      const cleanPhone = guestPhone.replace(/\s/g, "");
-      if (!cleanPhone) {
-        newErrors.phone = "Phone number is required";
-      } else if (!validatePhoneNumber(cleanPhone)) {
-        newErrors.phone = "Enter a valid Tanzanian number (2557XXXXXXXX)";
-      }
-      if (!selectedMobileMethod) {
-        newErrors.method = "Please select a mobile money provider";
-      }
-    } else {
-      if (!selectedBank) {
-        newErrors.bank = "Please select a bank";
-      }
-      if (!accountNumber.trim()) {
-        newErrors.accountNumber = "Account number is required";
-      }
-    }
-
-    if (Object.keys(newErrors).length > 0) {
+    if (!amount || !validateAmount(numericAmount) || numericAmount < 500) {
+      setPaymentError("Enter a valid amount (min TZS 500, max TZS 10,000,000)");
+      setPaymentState("error");
+      setPaymentStep("error");
+      toast.error("Enter a valid amount (min TZS 500)");
       return;
     }
 
@@ -265,68 +245,59 @@ const Index = () => {
     setPaymentError("");
 
     try {
-      if (paymentType === "mobile_money") {
-        const cleanPhone = guestPhone.replace(/\s/g, "");
-        const supabase = createSupabaseClient(getSession()?.access_token);
+      const cleanPhone = guestPhone.replace(/\s/g, "");
+      const supabase = createSupabaseClient(getSession()?.access_token);
 
-        const { data, error } = await supabase.functions.invoke("clickpesa-initiate", {
-          body: {
-            amount: numericAmount,
-            phone: cleanPhone,
-            userId: null,
-            projectId: null,
-            reference: reference || null,
-          },
-        });
+      const { data, error } = await supabase.functions.invoke("clickpesa-initiate", {
+        body: {
+          amount: numericAmount,
+          phone: cleanPhone || undefined,
+          userId: null,
+          projectId: null,
+          reference: reference || null,
+        },
+      });
 
-        if (error || !(data as any)?.success) {
-          const msg = (data as any)?.error || error?.message || "Failed to initiate payment.";
-          setPaymentState("error");
-          setPaymentStep("error");
-          setPaymentError(msg);
-          toast.error(msg);
-          return;
-        }
+      if (error || !(data as any)?.success) {
+        const msg = (data as any)?.error || error?.message || "Failed to start payment.";
+        setPaymentState("error");
+        setPaymentStep("error");
+        setPaymentError(msg);
+        toast.error(msg);
+        return;
+      }
 
-        const orderReference = (data as any).orderReference;
-        setPaymentStep("pending");
-        setStkPushSent(true);
-        toast.info("Payment request sent. Check your phone to approve.");
+      const orderReference = (data as any).orderReference;
+      const checkoutUrl = (data as any).checkoutUrl;
 
-        const finalStatus = await pollGuestPaymentStatus(orderReference);
-        setStkPushSent(false);
+      // Open hosted checkout in a new tab — covers mobile money + bank + card
+      window.open(checkoutUrl, "_blank", "noopener,noreferrer");
+      setPaymentStep("pending");
+      setStkPushSent(true);
+      toast.info("Checkout opened. Complete the payment to continue.");
 
-        if (finalStatus === "success") {
-          setPaymentStep("success");
-          setPaymentSummary({
-            type: paymentType,
-            method: selectedMobileMethod,
-            phone: cleanPhone,
-            reference,
-            amount: numericAmount,
-          });
-          setPaymentState("success");
-          toast.success("Payment successful! Thank you for your contribution.");
-        } else {
-          setPaymentStep("error");
-          const errorMessage = finalStatus === "timeout"
-            ? "Payment timed out. Please check your phone and try again."
-            : "Payment failed. Please try again.";
-          setPaymentError(errorMessage);
-          setPaymentState("error");
-          toast.error(errorMessage);
-        }
-      } else {
+      const finalStatus = await pollGuestPaymentStatus(orderReference);
+      setStkPushSent(false);
+
+      if (finalStatus === "success") {
         setPaymentStep("success");
         setPaymentSummary({
-          type: paymentType,
-          method: selectedBank,
-          accountNumber,
+          type: "mobile_money",
+          method: null,
+          phone: cleanPhone,
           reference,
           amount: numericAmount,
         });
         setPaymentState("success");
-        toast.success("Bank transfer details ready. Please complete the payment.");
+        toast.success("Payment successful! Thank you for your contribution.");
+      } else {
+        setPaymentStep("error");
+        const errorMessage = finalStatus === "timeout"
+          ? "We didn't receive a confirmation in time. Please check your transaction and try again."
+          : "Payment was not completed. Please try again.";
+        setPaymentError(errorMessage);
+        setPaymentState("error");
+        toast.error(errorMessage);
       }
     } catch (error: any) {
       setPaymentStep("error");
@@ -336,6 +307,7 @@ const Index = () => {
       setIsProcessing(false);
     }
   };
+
 
   const resetGuestPayment = () => {
     setPaymentState("form");

@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
         user_id: userId ?? null,
         project_id: projectId ?? null,
         amount: numAmount,
-        method: "hosted_checkout",
+        method: "other",
         reference: noteRef ?? null,
         status: "pending",
         clickpesa_order_reference: orderReference,
